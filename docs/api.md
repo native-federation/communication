@@ -6,7 +6,7 @@
 
 | Term               | Meaning                                                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| **channel**        | A named topic on the bus, e.g. `cart:changed`. Channels are created on first use; there is nothing to set up. |
+| **channel**        | A name on the bus, e.g. `cart:changed`. Channels are created on first use; there is nothing to set up.        |
 | **value**          | What a producer passes to `emit`. Any JavaScript value: objects, functions, class instances, `undefined`.     |
 | **retained value** | The one value a channel keeps after an `emit`. New listeners receive it on subscribe; `peek` returns it.      |
 | **listener**       | A function subscribed with `on`. It receives values, one at a time.                                           |
@@ -85,10 +85,9 @@ Neither is needed in application code.
   instead (once), not the queued values that came before it.
 - **Isolation.** A listener that throws doesn't affect the producer or the other listeners. The error is
   passed to `reportError` (it shows up in the console and in global error handlers as an uncaught error),
-  or to `console.error` where `reportError` doesn't exist. Only if `reportError` itself throws (a
-  replaced global error handler that fails) does that error escape: it reaches the caller (`emit`, or
-  `on` during its replay), and the deliveries still pending at that moment are dropped. The bus keeps
-  working for later emits.
+  or to `console.error` where `reportError` doesn't exist. If `reportError` itself throws, that error
+  reaches the caller and the pending deliveries are dropped; during `on`'s replay the listener stays
+  subscribed without an `off`, so only its `signal` can remove it.
 - **Same reference.** Every listener, the replay and `peek` receive the exact value the producer
   emitted. Nothing is cloned or frozen.
 - **No loop guard.** Two listeners that keep emitting to each other loop forever.
@@ -99,8 +98,9 @@ Neither is needed in application code.
   the returned `off` doesn't exist yet. To stop after the first value, pass a `signal` and abort it
   (see [`firstValue`](./recipes.md#wait-for-a-first-value-firstvalue)).
 - **Emit a new object for every change.** Since listeners get the producer's reference, mutating an
-  emitted object changes it for every listener and in the retained value. It also hides changes from Angular signals and
-  React's `useSyncExternalStore`, which compare by reference. Treat emitted values as immutable.
+  emitted object changes it for every listener and in the retained value. It also hides changes from
+  Angular signals and React's `useSyncExternalStore`, which compare by reference. Treat emitted values
+  as immutable.
 - **Never assign `__NF_BUS__` yourself.** The property is read-only, so an assignment throws in module
   code (and is silently ignored in sloppy scripts). Use `init-bus.js` or the `bus` import.
 - **The global may be missing.** In TypeScript, `globalThis.__NF_BUS__` is typed `Bus | undefined`: use
