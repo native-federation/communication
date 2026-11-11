@@ -37,6 +37,8 @@ value type as `import('@softarc/native-federation-communication').ChannelValue<'
 
 - **A misspelt name is just another channel.** It compiles, with an `unknown` value. Export the names as
   constants from your contracts module.
+- **Augment the package name, never `'./domain'`.** Mixing the two in one app can silently drop
+  declarations.
 - **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it.
 - **Commands.** Mark them in the declaration, as above, and emit them through one typed helper:
 
