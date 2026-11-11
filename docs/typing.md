@@ -52,6 +52,30 @@ The declaration has to be visible to both the producer and the consumers. Two co
 Two teams that declare the same channel with different types get a compile error ("Subsequent property
 declarations must have the same type"). That is useful: it shows contract drift at build time.
 
+## Command channels
+
+Whether a value is a command is decided at each `emit`, and the types can't express it. Forget
+`{ retain: false }` once, and the channel retains a stale command that every later listener receives.
+Two habits keep that from happening:
+
+- Mark the channel where it is declared:
+
+  ```ts
+  interface Channels {
+    // command: emit with { retain: false }
+    'nav:navigate': { url: string };
+  }
+  ```
+
+- Emit it through one helper per app, and only through that:
+
+  ```ts
+  import { bus, type ChannelValue } from '@softarc/native-federation-communication';
+
+  export const navigate = (value: ChannelValue<'nav:navigate'>): void =>
+    bus.emit('nav:navigate', value, { retain: false });
+  ```
+
 ## Types are a promise, not a guarantee
 
 Producer and consumer are built and deployed separately, so nothing stops a deployed producer from

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
-import { bus, type ChannelName, type ChannelValue } from './index';
+import { bus, createBus, type ChannelName, type ChannelValue } from './index';
 
 // The firstValue recipe from docs/recipes.md, verbatim between the markers; the last test keeps
 // the two in sync.
@@ -107,5 +107,52 @@ describe('the firstValue recipe', () => {
 
     expect(recipe).toBeTruthy();
     expect(docs).toContain(`export ${recipe}`);
+  });
+});
+
+// The Testing section of docs/recipes.md: app code imports `bus`, tests swap the slot under it.
+describe('the testing recipe', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete globalThis.__NF_BUS__;
+  });
+
+  it('routes the bus import to a bus stubbed into the slot', () => {
+    const stub = createBus();
+    vi.stubGlobal('__NF_BUS__', stub);
+
+    bus.emit('recipe:cart', { count: 1 });
+
+    expect(stub.peek('recipe:cart')).toEqual({ count: 1 });
+  });
+
+  it('can stub over a bus that is already installed', () => {
+    bus.emit('recipe:cart', { count: 1 });
+    const stub = createBus();
+
+    vi.stubGlobal('__NF_BUS__', stub);
+
+    expect(bus.peek('recipe:cart')).toBeUndefined();
+    bus.emit('recipe:cart', { count: 2 });
+    expect(stub.peek('recipe:cart')).toEqual({ count: 2 });
+  });
+
+  it('starts every test from an empty bus when the stub is renewed', () => {
+    vi.stubGlobal('__NF_BUS__', createBus());
+    bus.emit('recipe:cart', { count: 1 });
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('__NF_BUS__', createBus());
+
+    expect(bus.peek('recipe:cart')).toBeUndefined();
+  });
+
+  it('installs a fresh bus on the next call after the slot is deleted', () => {
+    bus.emit('recipe:cart', { count: 1 });
+
+    delete globalThis.__NF_BUS__;
+
+    expect(bus.peek('recipe:cart')).toBeUndefined();
+    expect(globalThis.__NF_BUS__).toBeDefined();
   });
 });

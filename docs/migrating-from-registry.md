@@ -15,21 +15,61 @@ the registry were separate; on the bus they are the same channel.
 | Registry                                                        | Bus                                                                                                                                         |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<script src="…/init-registry.mjs">`                            | `<script src="https://unpkg.com/@softarc/native-federation-communication@4/init-bus.js">`                                                   |
+| `window.__NF_REGISTRY__ ??= createRegistry(options)()` in code  | delete it: the first `bus` call installs the bus                                                                                            |
+| `declare global { interface Window { __NF_REGISTRY__ … } }`     | delete it: the package declares `__NF_BUS__` itself                                                                                         |
 | `window.__NF_REGISTRY__`                                        | `window.__NF_BUS__`, or `import { bus } from '@softarc/native-federation-communication'`                                                    |
+| `emit<Events['x']>('x', …)`, `on<Events['x']>(…)`               | `emit('x', …)`, `on('x', …)`: see [Typing](#typing)                                                                                         |
 | `register(name, value)`                                         | `emit(name, value)`                                                                                                                         |
 | `register(name, load)`                                          | `emit(name, await load())`: a function is now emitted as a value, not called                                                                |
+| `register(name, () => fn)`, to publish the function `fn`        | `emit(name, fn)`, without the wrapper (see the warning below)                                                                               |
 | `onReady(name, callback)`                                       | `on(name, callback)` for a channel emitted once, or the [`firstValue`](./recipes.md#wait-for-a-first-value-firstvalue) recipe for a promise |
 | `emit(name, value)`                                             | `emit(name, value)`                                                                                                                         |
 | `on(name, ({ data }) => …)`                                     | `on(name, value => …)`: listeners receive the value itself, without an envelope                                                             |
 | `on(name, callback, { replay: 0 })`                             | the producer emits with `{ retain: false }`                                                                                                 |
 | `on(name, callback, { replay: n })` with `n > 1`                | not supported: one retained value per channel (keep a list in the value if you need one)                                                    |
 | `update(name, current => next)`                                 | `emit(name, next(bus.peek(name)))`                                                                                                          |
-| `clear(name)` / `clear()`                                       | not supported; in tests, use a fresh `createBus()`                                                                                          |
+| `clear(name)` / `clear()`                                       | not supported; in tests, give each test a fresh bus (see [Testing](./recipes.md#testing))                                                   |
 | `data-max-streams`, `data-max-events`, `data-remove-percentage` | not needed: each channel retains one value                                                                                                  |
 | `{ data, timestamp }`                                           | put a timestamp in the value if a consumer needs one                                                                                        |
 
+The installing line in `main.ts` was there so the registry existed before any remote ran. The bus
+needs no such ordering: whichever copy is used first installs it. The one exception is the
+orchestrator's `quickstart.mjs`, which only announces `orch.init-ready` on a bus that is already on the
+page, so load `init-bus.js` before it.
+
+> **Watch the function wrappers.** `register(name, () => fn)` was the way to publish a function, because
+> `register` called functions. Ported literally, `emit(name, () => fn)` publishes the wrapper instead
+> of `fn`. On a typed channel TypeScript catches it; on an undeclared channel (typed `unknown`) nothing
+> does.
+
 `orch.init-ready` keeps its name. The orchestrator emits it on both the registry and the bus, whichever
 is on the page; see [Getting Started](./getting-started.md#waiting-for-the-orchestrator-orchinit-ready).
+
+## Typing
+
+The registry was typed per call, with a type argument from an app-owned interface. The bus types each
+channel once, by name. Move the interface into a `Channels` augmentation (see [Typing](./typing.md)):
+
+```ts
+// before
+export interface Events {
+  'store:selected': { id: string };
+}
+window.__NF_REGISTRY__!.emit<Events['store:selected']>('store:selected', { id });
+
+// after
+declare module '@softarc/native-federation-communication' {
+  interface Channels {
+    'store:selected': { id: string };
+  }
+}
+bus.emit('store:selected', { id });
+```
+
+- Drop the type arguments: the type parameter of `emit`, `on` and `peek` is now the channel name, and
+  the value type follows from it.
+- Where you used `Events['x']` as a type (a test fixture, a helper's parameter), use `ChannelValue<'x'>`
+  or the value type itself.
 
 ## Behaviour changes
 

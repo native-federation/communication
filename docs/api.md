@@ -4,13 +4,13 @@
 
 ## Glossary
 
-| Term               | Meaning                                                                                                       |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| **channel**        | A name on the bus, e.g. `cart:changed`. Channels are created on first use; there is nothing to set up.        |
-| **value**          | What a producer passes to `emit`. Any JavaScript value: objects, functions, class instances, `undefined`.     |
-| **retained value** | The one value a channel keeps after an `emit`. New listeners receive it on subscribe; `peek` returns it.      |
-| **listener**       | A function subscribed with `on`. It receives values, one at a time.                                           |
-| **command**        | A value emitted with `{ retain: false }`: delivered to the listeners subscribed right now, never retained.    |
+| Term               | Meaning                                                                                                    |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **channel**        | A name on the bus, e.g. `cart:changed`. Channels are created on first use; there is nothing to set up.     |
+| **value**          | What a producer passes to `emit`. Any JavaScript value: objects, functions, class instances, `undefined`.  |
+| **retained value** | The one value a channel keeps after an `emit`. New listeners receive it on subscribe; `peek` returns it.   |
+| **listener**       | A function subscribed with `on`. It receives values, one at a time.                                        |
+| **command**        | A value emitted with `{ retain: false }`: delivered to the listeners subscribed right now, never retained. |
 
 ## The bus
 
@@ -48,7 +48,9 @@ Delivers `value` to the channel's listeners.
   now, and the channel's retained value is cleared. Afterwards, `peek` returns `undefined` and new
   listeners receive nothing until the next retained emit.
 
-Keep one kind per channel: a channel carries either state or commands.
+Keep one kind per channel: a channel carries either state or commands. For command channels, see
+[Command channels](./typing.md#command-channels): one forgotten `{ retain: false }` makes a channel
+retain a stale command.
 
 ### `on(channel, listener, options?)`
 
@@ -101,8 +103,9 @@ Neither is needed in application code.
   emitted object changes it for every listener and in the retained value. It also hides changes from
   Angular signals and React's `useSyncExternalStore`, which compare by reference. Treat emitted values
   as immutable.
-- **Never assign `__NF_BUS__` yourself.** The property is read-only, so an assignment throws in module
-  code (and is silently ignored in sloppy scripts). Use `init-bus.js` or the `bus` import.
+- **Don't assign `__NF_BUS__` in production code.** The property is read-only, so an assignment throws
+  in module code (and is silently ignored in sloppy scripts). Use `init-bus.js` or the `bus` import.
+  Tests can replace the bus; see [Testing](./recipes.md#testing).
 - **The global may be missing.** In TypeScript, `globalThis.__NF_BUS__` is typed `Bus | undefined`: use
   `__NF_BUS__?.emit(…)`, or import `bus`, which is always there.
 - **Don't generate channel names.** Each channel name keeps its retained value for the life of the page.

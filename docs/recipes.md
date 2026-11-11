@@ -42,6 +42,17 @@ constructor() {
 }
 ```
 
+`inject(DestroyRef)` works the same in a root service or in `provideAppInitializer`. There it is the
+environment injector's `DestroyRef`: the listener lives as long as the app, and a `TestBed` reset
+releases it instead of leaking it into the next test.
+
+```ts
+provideAppInitializer(() => {
+  const router = inject(Router);
+  inject(DestroyRef).onDestroy(bus.on('nav:navigate', ({ url }) => router.navigateByUrl(url)));
+});
+```
+
 ## React
 
 Subscribe in an effect; `on` returns the effect's cleanup:
@@ -182,3 +193,28 @@ class CartBadge extends HTMLElement {
 
 customElements.define('cart-badge', CartBadge);
 ```
+
+## Testing
+
+App code imports `bus`, which looks up `globalThis.__NF_BUS__` on every call. So give each test a fresh
+bus by replacing that slot, in a setup file:
+
+```ts
+// vitest setup file
+import { createBus } from '@softarc/native-federation-communication';
+
+beforeEach(() => {
+  vi.stubGlobal('__NF_BUS__', createBus());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+```
+
+The slot is read-only but configurable, for exactly this. Without `vi.stubGlobal` (in Jest, for
+example), `delete globalThis.__NF_BUS__` in a `beforeEach` works too: the next `bus` call installs a new
+bus. Either way the test environment needs a `window` (jsdom or happy-dom); without one, `bus` is inert.
+
+A bare `createBus()` only helps code that receives the bus as a parameter. Code that imports `bus`
+never sees it.

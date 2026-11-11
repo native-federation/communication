@@ -27,6 +27,12 @@ So with native federation, **sharing the package is only a size optimisation**. 
 remote, share it, or end up with two versions that were not shared: all copies converge on the same bus,
 so the `shared` configuration can't break communication.
 
+Note that `shareAll(…)`, and other helpers that share everything in `package.json` `dependencies`,
+share this package automatically, with your app's `singleton` and `strictVersion` settings. Strict
+settings turn a version skew between remotes into a native federation version conflict, for a package
+that doesn't need a single version on the page. So either share it without `strictVersion`, or leave it
+out of sharing (for example with `skip`) and let each remote bundle its own small copy.
+
 ## The protocol
 
 The object on `__NF_BUS__` is the real contract between copies, more than the TypeScript API. Its rules:
