@@ -60,6 +60,20 @@ describe('the page bus without window', () => {
     expect(warn).toHaveBeenCalledTimes(2);
   });
 
+  it.each([
+    ['emit', (bus: Bus) => bus.emit('a', 1)],
+    ['on', (bus: Bus) => bus.on('a', () => {})],
+    ['peek', (bus: Bus) => bus.peek('a')],
+  ])('warns from %s alone, but not when protocol or version is read', async (_, call) => {
+    const { bus } = await loadCopy();
+
+    expect([bus.protocol, bus.version]).toEqual([1, version]);
+    expect(warn).not.toHaveBeenCalled();
+
+    call(bus);
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
   it('throws the same TypeErrors as a real bus', async () => {
     const { bus } = await loadCopy();
 

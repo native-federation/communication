@@ -21,7 +21,7 @@ const channel = fc.constantFrom(...CHANNELS);
 
 type Command =
   | { kind: 'emit'; channel: ChannelId; value: number; retain: boolean }
-  | { kind: 'on'; channel: ChannelId; throws: boolean; signal: boolean }
+  | { kind: 'on'; channel: ChannelId; throws: boolean; signal: boolean; replay: boolean }
   | { kind: 'off'; pick: number }
   | { kind: 'abort'; pick: number }
   | { kind: 'peek'; channel: ChannelId };
@@ -40,6 +40,7 @@ const command: fc.Arbitrary<Command> = fc.oneof(
     channel: few,
     throws: fc.boolean(),
     signal: fc.boolean(),
+    replay: fc.boolean(),
   }),
   fc.record({ kind: fc.constant('off' as const), pick: fc.nat({ max: 3 }) }),
   fc.record({ kind: fc.constant('abort' as const), pick: fc.nat({ max: 3 }) }),
@@ -82,14 +83,16 @@ function runCommand(bus: Bus, model: Model, cmd: Command): void {
         off: () => {},
       };
       if (controller) sub.controller = controller;
-      if (model.retained.has(cmd.channel)) sub.expected.push(model.retained.get(cmd.channel));
+      if (cmd.replay && model.retained.has(cmd.channel)) {
+        sub.expected.push(model.retained.get(cmd.channel));
+      }
       sub.off = bus.on(
         cmd.channel,
         value => {
           sub.received.push(value);
           if (cmd.throws) throw new Error('listener');
         },
-        { signal: controller?.signal }
+        { signal: controller?.signal, replay: cmd.replay }
       );
       if (cmd.throws) model.throwing.add(sub);
       model.subs.push(sub);

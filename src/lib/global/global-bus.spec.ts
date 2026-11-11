@@ -104,6 +104,22 @@ describe('the page bus', () => {
     expect((globalThis as { __NF_BUS__?: unknown }).__NF_BUS__).toBe(foreign);
   });
 
+  it('passes the options of emit and on through to the bus serving the page', async () => {
+    const { bus } = await loadCopy();
+    const controller = new AbortController();
+    bus.emit('a', 'stale');
+    bus.emit('b', 1, { retain: false });
+
+    const received: unknown[] = [];
+    bus.on('a', value => received.push(value), { replay: false, signal: controller.signal });
+    bus.emit('a', 'live');
+    controller.abort();
+    bus.emit('a', 'after abort');
+
+    expect(received).toEqual(['live']);
+    expect(bus.peek('b')).toBeUndefined();
+  });
+
   it('works with destructured methods', async () => {
     const { bus } = await loadCopy();
     const { emit, on, peek } = bus;

@@ -23,6 +23,21 @@ async function loadCopy(): Promise<Copy> {
 
 const runInitScript = (): void => new Function(SCRIPT)();
 
+type Page = { __NF_BUS__: unknown; firstBus: unknown };
+
+// Runs the scripts as classic <script> tags in a fresh page, the way a host's index.html would.
+function loadPage(scripts: string[]) {
+  const errors: unknown[] = [];
+  const warnings: unknown[] = [];
+  const virtualConsole = new VirtualConsole();
+  virtualConsole.on('jsdomError', (error: Error) => errors.push(error));
+  virtualConsole.on('warn', (message: unknown) => warnings.push(message));
+  const html = scripts.map(script => `<script>${script}</script>`).join('');
+
+  const { window } = new JSDOM(html, { runScripts: 'dangerously', virtualConsole });
+  return { page: window as unknown as Page, errors, warnings };
+}
+
 describe('the published bundles', () => {
   beforeEach(() => {
     delete globalThis.__NF_BUS__;
@@ -131,23 +146,44 @@ describe('the published bundles', () => {
       expect(globalThis.__NF_BUS__).toBe(installed);
     });
 
-    it('keeps the first bus when the script tag is on the page twice', () => {
-      const errors: unknown[] = [];
-      const virtualConsole = new VirtualConsole();
-      virtualConsole.on('jsdomError', (error: Error) => errors.push(error));
-      // The middle script emits on the first bus, so the third can only keep the value by reusing it.
-      const html = [
-        `<script>${SCRIPT}</script>`,
-        '<script>window.firstBus = window.__NF_BUS__; window.__NF_BUS__.emit("a", 1);</script>',
-        `<script>${SCRIPT}</script>`,
-      ].join('');
+    // The middle script emits on the first bus, so the last can only keep the value by reusing it.
+    const FIRST_EMITS = 'window.firstBus = window.__NF_BUS__; window.__NF_BUS__.emit("a", 1);';
 
-      const { window } = new JSDOM(html, { runScripts: 'dangerously', virtualConsole });
-      const page = window as unknown as { __NF_BUS__: Bus; firstBus: Bus };
+    it('keeps the first bus when the script tag is on the page twice', () => {
+      const { page, errors } = loadPage([SCRIPT, FIRST_EMITS, SCRIPT]);
+      const installed = page.__NF_BUS__ as Bus;
 
       expect(errors).toEqual([]);
-      expect(page.__NF_BUS__).toBe(page.firstBus);
-      expect(page.__NF_BUS__.peek('a')).toBe(1);
+      expect(installed).toBe(page.firstBus);
+      expect(installed.peek('a')).toBe(1);
+    });
+
+    // A var at the top of a classic script makes the slot a non-configurable global property.
+    it('installs over a page script’s `var __NF_BUS__;` and is reused by a second copy', () => {
+      const { page, errors, warnings } = loadPage(['var __NF_BUS__;', SCRIPT, FIRST_EMITS, SCRIPT]);
+      const installed = page.__NF_BUS__ as Bus;
+
+      expect(Object.getOwnPropertyDescriptor(page, '__NF_BUS__')?.configurable).toBe(false);
+      expect(errors).toEqual([]);
+      expect(warnings).toEqual([]);
+      expect(installed).toBe(page.firstBus);
+      expect(installed.peek('a')).toBe(1);
+    });
+
+    // Each copy warns once for itself; the unit specs pin the once.
+    it('warns from each copy and leaves a foreign object at the key alone', () => {
+      const { page, errors, warnings } = loadPage([
+        'window.__NF_BUS__ = { protocol: 1 };',
+        SCRIPT,
+        SCRIPT,
+      ]);
+
+      expect(errors).toEqual([]);
+      expect(warnings).toEqual([
+        expect.stringMatching(/not a bus/),
+        expect.stringMatching(/not a bus/),
+      ]);
+      expect(page.__NF_BUS__).toEqual({ protocol: 1 });
     });
 
     it('does nothing and does not throw without window', () => {
