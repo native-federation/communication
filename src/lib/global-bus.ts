@@ -1,7 +1,5 @@
 import type { Bus } from './bus.contract';
-import { createBus, VERSION } from './create-bus';
-
-const noop = (): void => {};
+import { createBus, noop, VERSION } from './create-bus';
 
 const inert: Bus = Object.freeze({
   protocol: 1,

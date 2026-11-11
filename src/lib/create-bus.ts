@@ -1,13 +1,13 @@
 import type { Bus, Listener, OnOptions, EmitOptions, Unsubscribe } from './bus.contract';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
-export const VERSION: string = __NF_COMMUNICATION_VERSION__;
+export const VERSION = __NF_COMMUNICATION_VERSION__;
 
 type Sub = { fn: Listener<unknown> };
-type Channel = { has: boolean; value: unknown; subs: Set<Sub>; release: () => void };
+type Channel = { has: boolean; value: unknown; subs: Set<Sub>; dropIfEmpty: () => void };
 type Task = () => void;
 
-const noop: Unsubscribe = () => {};
+export const noop = (): void => {};
 
 function report(error: unknown): void {
   if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
@@ -37,10 +37,13 @@ function createQueue() {
   const hold = (step: Task): void => {
     if (draining) return step();
     draining = true;
-    step();
-    for (const task of tasks) task();
-    tasks.length = 0;
-    draining = false;
+    try {
+      step();
+      for (const task of tasks) task();
+    } finally {
+      tasks.length = 0;
+      draining = false;
+    }
   };
 
   return { hold, enqueue: (task: Task) => hold(() => tasks.push(task)) };
@@ -55,7 +58,7 @@ function open(channels: Map<string, Channel>, name: string): Channel {
     value: undefined,
     subs: new Set(),
     // A stale record (replaced after it emptied) must never delete its successor.
-    release: () => {
+    dropIfEmpty: () => {
       const empty = !channel.has && channel.subs.size === 0;
       if (empty && channels.get(name) === channel) channels.delete(name);
     },
@@ -69,7 +72,7 @@ function subscribe(channel: Channel, sub: Sub, signal?: AbortSignal): Unsubscrib
   const off = (): void => {
     channel.subs.delete(sub);
     signal?.removeEventListener('abort', off);
-    channel.release();
+    channel.dropIfEmpty();
   };
   signal?.addEventListener('abort', off, { once: true });
   return off;
@@ -84,7 +87,7 @@ export function createBus(): Bus {
     channel.has = options?.retain !== false;
     channel.value = channel.has ? value : undefined;
     const subs = [...channel.subs];
-    channel.release();
+    channel.dropIfEmpty();
     enqueue(() => fanOut(subs, channel.subs, value));
   };
 

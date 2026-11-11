@@ -348,6 +348,26 @@ describe('createBus', () => {
       expect(later.values).toEqual([1, 2]);
       expect(reported).toHaveBeenCalledTimes(2);
     });
+
+    it('keeps delivering after the error reporter itself throws', () => {
+      const reporterError = new Error('reporter down');
+      vi.stubGlobal(
+        'reportError',
+        vi.fn(() => {
+          throw reporterError;
+        })
+      );
+      const unsubscribe = bus.on('a', () => {
+        throw new Error('listener');
+      });
+
+      expect(() => bus.emit('a', 1)).toThrow(reporterError);
+      unsubscribe();
+      const received = collect(bus, 'a');
+      bus.emit('a', 2);
+
+      expect(received.values).toEqual([1, 2]);
+    });
   });
 
   describe('re-entrancy and ordering', () => {
@@ -403,6 +423,21 @@ describe('createBus', () => {
       bus.on('a', value => {
         seen.push(`new:${value}`);
         if (value === 1) bus.emit('a', 2);
+      });
+
+      expect(seen).toEqual(['sibling:1', 'new:1', 'sibling:2', 'new:2']);
+    });
+
+    // Emitting before recording is what tells a queued delivery apart from one nested inside the
+    // replay: nested, 'new:2' would land before 'new:1'.
+    it('queues an emit made inside a replay callback until the replay returns', () => {
+      const seen: string[] = [];
+      bus.emit('a', 1);
+      bus.on('a', value => seen.push(`sibling:${value}`));
+
+      bus.on('a', value => {
+        if (value === 1) bus.emit('a', 2);
+        seen.push(`new:${value}`);
       });
 
       expect(seen).toEqual(['sibling:1', 'new:1', 'sibling:2', 'new:2']);
