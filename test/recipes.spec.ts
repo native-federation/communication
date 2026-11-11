@@ -171,6 +171,22 @@ describe('the request bus recipe', () => {
     expect(warn.mock.calls[0]?.[0]).toMatch(/outside a request/);
   });
 
+  // Like the package's inert bus: a bad argument throws before anything is warned or dropped.
+  it('throws the bus TypeErrors outside a request, without warning', async () => {
+    const { installRequestBus } = await recipe('request-bus');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    installRequestBus();
+    const slot = globalThis.__NF_BUS__ as unknown as Record<
+      string,
+      (...args: unknown[]) => unknown
+    >;
+
+    expect(() => slot.emit?.(42, 'a')).toThrow(TypeError);
+    expect(() => slot.on?.('recipe:user')).toThrow(TypeError);
+    expect(() => slot.peek?.(null)).toThrow(TypeError);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('still serves requests after an out-of-scope call', async () => {
     const { installRequestBus, withRequestBus } = await recipe('request-bus');
     vi.spyOn(console, 'warn').mockImplementation(() => {});

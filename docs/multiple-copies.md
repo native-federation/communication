@@ -15,7 +15,7 @@ case that applies:
    runtime, whichever copy installed it.
 2. **Something else is there**: leave it, warn once and use a private bus, which the rest of the page
    never hears. Fix the page.
-3. **A browser page** (`window` is the global object): install a new, read-only bus.
+3. **A browser page** (`window` is the global object): install a new bus there.
 4. **Anywhere else**: use an inert bus that drops every call and warns once. See
    [Outside a browser](#outside-a-browser).
 

@@ -144,20 +144,21 @@ const requests = new AsyncLocalStorage();
 
 export function installRequestBus() {
   let warned = false;
-  const current = () => {
+  const call = (method, args) => {
     const scoped = requests.getStore();
-    if (!scoped && !warned) {
-      warned = true;
-      console.warn('__NF_BUS__ was used outside a request: the call was ignored.');
-    }
-    return scoped;
+    if (scoped) return scoped[method](...args);
+    // a throwaway bus checks the arguments like any bus and keeps nothing
+    const result = createBus()[method](...args);
+    if (!warned) console.warn('__NF_BUS__ was used outside a request: the call was ignored.');
+    warned = true;
+    return result;
   };
   globalThis.__NF_BUS__ = Object.freeze({
     protocol: 1,
     version: createBus().version,
-    emit: (channel, value, options) => current()?.emit(channel, value, options),
-    on: (channel, listener, options) => current()?.on(channel, listener, options) ?? (() => {}),
-    peek: channel => current()?.peek(channel),
+    emit: (...args) => call('emit', args),
+    on: (...args) => call('on', args),
+    peek: (...args) => call('peek', args),
   });
 }
 
@@ -170,7 +171,7 @@ server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 ```
 
 Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share the request's
-bus, across `await` too. A call outside a request is dropped with one warning.
+bus, across `await` too. A call outside a request is checked, then dropped with one warning.
 
 ## Testing
 

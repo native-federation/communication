@@ -32,7 +32,7 @@ A channel is any string and exists from first use. A value can be anything, func
 so `{ retain: 0 }` is `{ retain: false }`. Unknown options are ignored.
 
 **Errors.** Every method throws a `TypeError` if `channel` is not a string, and `on` if `listener` is
-not a function.
+not a function or `signal` is an `AbortController` instead of its `signal`.
 
 ## `emit(channel, value, options?)`
 

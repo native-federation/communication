@@ -24,7 +24,7 @@ that keep their last value; a resource and a stream with the same name become on
 | `on(name, ({ data }) => …)`                                     | `on(name, value => …)`: listeners get the value itself                                             |
 | `on(name, callback, { replay: 0 })`                             | `on(name, callback, { replay: false })` (`0` still works); producers emit with `{ retain: false }` |
 | `on(name, callback, { replay: n })` with `n > 1`                | not supported: keep a list in the value                                                            |
-| `update(name, current => next)`                                 | `emit(name, next(bus.peek(name)))`                                                                 |
+| `update(name, fn)`                                              | `emit(name, fn(bus.peek(name)))`                                                                   |
 | `clear(name)` / `clear()`                                       | not supported; tests get a fresh bus, see [Testing](./recipes.md#testing)                          |
 | `data-max-streams`, `data-max-events`, `data-remove-percentage` | not needed: a channel keeps one value                                                              |
 | `{ data, timestamp }`                                           | put a timestamp in the value if a consumer needs one                                               |
