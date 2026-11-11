@@ -5,6 +5,7 @@ import type {
   EmitOptions,
   Unsubscribe,
 } from '../domain/bus/bus.contract.js';
+import { assertChannel, assertListener, noop } from './arguments.js';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
 export const VERSION = __NF_COMMUNICATION_VERSION__;
@@ -13,25 +14,7 @@ type Sub = { fn: Listener<unknown> };
 type Channel = { has: boolean; value: unknown; subs: Set<Sub>; dropIfEmpty: () => void };
 type Task = () => void;
 
-export const noop = (): void => {};
-
-export function assertChannel(channel: unknown): void {
-  if (typeof channel !== 'string') {
-    throw new TypeError(
-      `[native-federation-communication] A channel must be a string, got ${typeof channel}.`
-    );
-  }
-}
-
-export function assertListener(listener: unknown): void {
-  if (typeof listener !== 'function') {
-    throw new TypeError(
-      `[native-federation-communication] A listener must be a function, got ${typeof listener}.`
-    );
-  }
-}
-
-// Read like a WebIDL boolean with a true default, so a migrated `{ replay: 0 }` means off.
+// undefined means the default (on); anything else goes through Boolean(), so `{ replay: 0 }` is off.
 const enabled = (option: unknown): boolean => option === undefined || Boolean(option);
 
 function report(error: unknown): void {

@@ -1,5 +1,6 @@
 import type { Bus } from '../domain/bus/bus.contract.js';
-import { assertChannel, assertListener, createBus, noop, VERSION } from '../bus/create-bus.js';
+import { assertChannel, assertListener, noop } from '../bus/arguments.js';
+import { createBus, VERSION } from '../bus/create-bus.js';
 
 const METHODS = ['emit', 'on', 'peek'] as const;
 
