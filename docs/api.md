@@ -2,111 +2,81 @@
 
 # API
 
-## Glossary
-
-| Term               | Meaning                                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| **channel**        | A name on the bus, e.g. `cart:changed`. Channels are created on first use; there is nothing to set up.     |
-| **value**          | What a producer passes to `emit`. Any JavaScript value: objects, functions, class instances, `undefined`.  |
-| **retained value** | The one value a channel keeps after an `emit`. New listeners receive it on subscribe; `peek` returns it.   |
-| **listener**       | A function subscribed with `on`. It receives values, one at a time.                                        |
-| **command**        | A value emitted with `{ retain: false }`: delivered to the listeners subscribed right now, never retained. |
-
-## The bus
-
-```ts
+```js
 import { bus, createBus } from '@softarc/native-federation-communication';
 ```
 
-- `bus` is the page's bus. Every copy of the package on the page, and `globalThis.__NF_BUS__`, refer to
-  the same one (see [Multiple copies](./multiple-copies.md)). On a server it does nothing (see
-  [SSR](./multiple-copies.md#ssr)).
-- `createBus()` returns a new, isolated bus that is not installed anywhere. Use it in unit tests, or for
-  a bus per server request.
+- `bus` is the page's bus, the same one every copy of the package and `globalThis.__NF_BUS__` use.
+- `createBus()` returns a new bus that is installed nowhere: for code that takes the bus as a
+  parameter, or to [install one outside a browser](./multiple-copies.md#outside-a-browser).
 
-Both have the same shape:
+Both have this shape, written as a TypeScript type. The methods never use `this`.
 
 ```ts
 type Bus = {
-  readonly protocol: number;
-  readonly version: string;
-  emit(channel, value, options?: { retain?: boolean }): void;
-  on(channel, listener: (value) => void, options?: { signal?: AbortSignal }): () => void;
-  peek(channel): value | undefined;
+  readonly protocol: number; // the contract between copies: 1
+  readonly version: string; // the package version of the copy that serves the page
+  emit(channel: string, value: unknown, options?: { retain?: boolean }): void;
+  on(
+    channel: string,
+    listener: (value: unknown) => void,
+    options?: { signal?: AbortSignal; replay?: boolean }
+  ): () => void;
+  peek(channel: string): unknown;
 };
 ```
 
-`channel` and the value types come from [Typing](./typing.md). The methods never use `this`, so
-`const { emit, on } = __NF_BUS__` works.
+A channel is any string and exists from first use. A value can be anything, functions included.
 
-### `emit(channel, value, options?)`
+**Options.** A missing or `undefined` option means its default; any other value is read as a boolean,
+so `{ retain: 0 }` is `{ retain: false }`. Unknown options are ignored.
 
-Delivers `value` to the channel's listeners.
+**Errors.** Every method throws a `TypeError` if `channel` is not a string, and `on` if `listener` is
+not a function.
 
-- By default the channel **retains** `value`, replacing any earlier retained value.
-- With `{ retain: false }` the value is a **command**: it is delivered to the listeners subscribed right
-  now, and the channel's retained value is cleared. Afterwards, `peek` returns `undefined` and new
-  listeners receive nothing until the next retained emit.
+## `emit(channel, value, options?)`
 
-Keep one kind per channel: a channel carries either state or commands. For command channels, see
-[Command channels](./typing.md#command-channels): one forgotten `{ retain: false }` makes a channel
-retain a stale command.
+Delivers `value` to the channel's listeners, and the channel retains it in place of the previous value.
+With `{ retain: false }` the value is a command: only current listeners get it, and the channel's
+retained value is cleared.
 
-### `on(channel, listener, options?)`
+## `on(channel, listener, options?)`
 
-Subscribes `listener` and returns `off`, a function that unsubscribes it.
+Subscribes `listener` and returns `off`, which unsubscribes it and is safe to call twice.
 
-- If the channel has a retained value, `listener` is called with it **synchronously, before `on`
-  returns**. Then it receives every later emit.
-- `options.signal`: aborting the `AbortSignal` unsubscribes, exactly like calling `off`. An
-  already-aborted signal subscribes nothing and replays nothing.
-- `off` can be called any number of times, and also after an abort.
-- Subscribing the same function twice gives two independent subscriptions; each `off` removes only its
-  own.
+- A retained value is delivered before `on` returns, then every later emit.
+- `{ replay: false }` skips the retained value.
+- `{ signal }`: aborting it unsubscribes. An aborted signal subscribes nothing.
 
-### `peek(channel)`
+## `peek(channel)`
 
-Returns the channel's retained value, or `undefined` if it has none. It can't tell a retained
-`undefined` apart from no value; if that matters, don't emit `undefined`.
-
-### `protocol` and `version`
-
-`protocol` is the version of the shared contract on `globalThis.__NF_BUS__` (`1`). `version` is the
-package version of the copy that serves the page bus, useful when debugging a page with several copies.
-Neither is needed in application code.
+Returns the retained value, or `undefined`. A retained `undefined` looks the same as none.
 
 ## Delivery rules
 
-- **Order.** Every listener sees values in emit order, across all channels. When a listener emits while
-  it is being called, the new value is queued, and delivered once the value in flight has reached every
-  listener.
-- **Replay and order.** If a listener emits from inside its own replay, it receives the replayed value
-  first and then the new one, each exactly once.
-- **Who receives an emit.** The listeners subscribed at the moment of the emit. A listener that
-  unsubscribes before its turn is skipped. A listener that subscribes later receives the retained value
-  instead (once), not the queued values that came before it.
-- **Isolation.** A listener that throws doesn't affect the producer or the other listeners. The error is
-  passed to `reportError` (it shows up in the console and in global error handlers as an uncaught error),
-  or to `console.error` where `reportError` doesn't exist. If `reportError` itself throws, that error
-  reaches the caller and the pending deliveries are dropped; during `on`'s replay the listener stays
-  subscribed without an `off`, so only its `signal` can remove it.
-- **Same reference.** Every listener, the replay and `peek` receive the exact value the producer
-  emitted. Nothing is cloned or frozen.
+- **Order.** Every listener sees values in emit order, across channels. A value emitted inside a
+  listener waits until the current value has reached every listener, so that `emit` returns first.
+- **Who gets it.** The listeners subscribed at the emit. One that unsubscribes before its turn is
+  skipped.
+- **Isolation.** A throwing listener doesn't stop the producer or the other listeners. The error goes to
+  `reportError` (in a browser, reported like an uncaught error), or to `console.error` without it.
+- **Same reference.** Listeners and `peek` get the producer's object. Nothing is copied or frozen.
 - **No loop guard.** Two listeners that keep emitting to each other loop forever.
+
+To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the browser console.
 
 ## Pitfalls
 
-- **The first callback can't use `off`.** The replay runs before `on` returns, so inside that first call
-  the returned `off` doesn't exist yet. To stop after the first value, pass a `signal` and abort it
-  (see [`firstValue`](./recipes.md#wait-for-a-first-value-firstvalue)).
-- **Emit a new object for every change.** Since listeners get the producer's reference, mutating an
-  emitted object changes it for every listener and in the retained value. It also hides changes from
-  Angular signals and React's `useSyncExternalStore`, which compare by reference. Treat emitted values
-  as immutable.
-- **Don't assign `__NF_BUS__` in production code.** The property is read-only, so an assignment throws
-  in module code (and is silently ignored in sloppy scripts). Use `init-bus.js` or the `bus` import.
-  Tests can replace the bus; see [Testing](./recipes.md#testing).
-- **The global may be missing.** In TypeScript, `globalThis.__NF_BUS__` is typed `Bus | undefined`: use
-  `__NF_BUS__?.emit(…)`, or import `bus`, which is always there.
-- **Don't generate channel names.** Each channel name keeps its retained value for the life of the page.
-  A name per request or per id grows without bound; put the id in the value instead.
+- **Inside the first call, `off` doesn't exist yet**, because the retained value arrives before `on`
+  returns. To stop after one value, abort a `signal`, as [`firstValue`](./recipes.md#firstvalue) does.
+  `{ once: true }` is not an option.
+- **Unsubscribe when your component goes away.** A listener outlives its micro frontend otherwise.
+- **Emit a new object for every change.** A mutated object changes for every listener, and Angular
+  signals and React miss the change, because they compare references.
+- **Don't declare or assign `__NF_BUS__` on a page.** A `var __NF_BUS__` in a classic script makes it a
+  plain variable that the next assignment replaces, which splits the page. Tests replace the bus as in
+  [Testing](./recipes.md#testing).
+- **Don't delete `__NF_BUS__` on a live page.** The next call installs a new bus, and the old one's
+  listeners never hear from it again.
+- **Don't generate channel names.** Each name keeps its value for the life of the page. Put ids in the
+  value.

@@ -2,69 +2,46 @@
 
 # Multiple copies
 
-Micro frontends are built and deployed independently, so a page often holds several copies of this
-package, sometimes in different versions: one bundled into each remote, one from `init-bus.js`, one
-shared through native federation. They must all talk over **one** bus, or a value emitted by one
-remote never reaches another.
+Bundle the package into every remote, share it with native federation, or both: every copy on the page
+uses the same bus. If you share it, leave `strictVersion` off (or `skip` the package), so two versions
+don't become a native federation version conflict that this package doesn't need.
 
-## How copies find each other
+## How a copy finds the bus
 
-The bus lives on the page, not in the package: `globalThis.__NF_BUS__`. Every copy goes through the same
-steps the first time `bus` is used (never at import time):
+The bus lives in `globalThis.__NF_BUS__`. On its first use (never at import), a copy takes the first
+case that applies:
 
-1. **No `window`** (server-side rendering, a worker): use an inert bus that does nothing. See
-   [SSR](#ssr).
-2. **A bus is already installed** (`__NF_BUS__.protocol` is a number `>= 1`): use it, whichever copy or
-   version installed it.
-3. **Something else is in `__NF_BUS__`**: leave it untouched, warn once in the console and fall back to
-   a private bus. That copy's channels don't reach the rest of the page, so fix the page.
-4. **Nothing installed yet**: install a new bus as a read-only, non-enumerable property and use it.
+1. **A bus is installed** (`protocol >= 1`, and `emit`, `on` and `peek` are functions): use it, in any
+   runtime, whichever copy installed it.
+2. **Something else is there**: leave it, warn once and use a private bus, which the rest of the page
+   never hears. Fix the page.
+3. **A browser page** (`window` is the global object): install a new, read-only bus.
+4. **Anywhere else**: use an inert bus that drops every call and warns once. See
+   [Outside a browser](#outside-a-browser).
 
-`init-bus.js` runs exactly these steps once, immediately. Loading it twice, or loading it after a remote
-already installed the bus, is harmless.
-
-So with native federation, **sharing the package is only a size optimisation**. Bundle it into every
-remote, share it, or end up with two versions that were not shared: all copies converge on the same bus,
-so the `shared` configuration can't break communication.
-
-`shareAll(…)`, and other helpers that share everything in `package.json` `dependencies`,
-share this package automatically, with your app's `singleton` and `strictVersion` settings. Strict
-settings turn a version skew between remotes into a native federation version conflict, for a package
-that doesn't need a single version on the page. So either share it without `strictVersion`, or leave it
-out of sharing (for example with `skip`) and let each remote bundle its own small copy.
+`init-bus.js` runs these steps at once; loading it twice is harmless. The first copy to install serves
+the page, so a host that wants a known version loads `init-bus.js` first.
 
 ## The protocol
 
-The object on `__NF_BUS__` is the real contract between copies, more than the TypeScript API. Its rules:
+The frozen object in `__NF_BUS__` is the contract between old and new copies:
 
-- `protocol` is `1`. Copies check `protocol`, never `version`; `version` is informational, and the
-  package major and the protocol are independent (4.x ships protocol 1, and 5.0 may too).
-- Protocol 1 is **append-only**: methods and option fields can be added, never changed or removed.
-- A bus ignores option fields it doesn't know. So a newer copy that relies on something added in
-  protocol `N` first checks `__NF_BUS__.protocol >= N`.
-- A breaking change gets a **new global key**, never a changed member.
-- There is no semver parsing at runtime.
+- Copies check `protocol` (1), never `version`. The package major is a separate number.
+- Methods may be added. A copy checks that one exists before calling it, and the types mark it optional.
+- An option or behaviour an older bus would silently ignore needs a new protocol number, and callers
+  check `protocol >= N` first.
+- A member's type never changes, since TypeScript merges every copy's declaration of the global.
+- A breaking change gets a new global name.
 
-The bus object is frozen, and its methods never use `this`.
+## Outside a browser
 
-## Iframes and workers
+Node, Deno, Bun, workers and iframes:
 
-- **Iframes** are separate realms with their own `globalThis`, so each iframe gets its own bus. Bridge
-  with `postMessage` yourself if you need to; values then get structured-cloned.
-- **Workers** have no `window`, so `bus` is inert there. Use `createBus()` if a worker needs a bus of
-  its own.
-
-## SSR
-
-On a server, one module instance serves every request. A page-wide bus there would replay one user's
-retained value into another user's render. So:
-
-- Importing the package touches no globals.
-- Without `window`, `bus` is inert: `emit` does nothing, `on` never calls the listener and returns a
-  no-op, `peek` returns `undefined`. There is no warning.
-- `init-bus.js` evaluated without `window` does nothing and doesn't throw.
-- Server code that really needs a bus creates one per request with `createBus()` and passes it along
-  through its own dependency injection.
-
-Code that waits for a value on the server waits forever. See the SSR notes in [Recipes](./recipes.md):
-guard `firstValue` with `isPlatformBrowser`, and pass `getServerSnapshot` to `useSyncExternalStore`.
+- **An iframe** has its own global object, so its own bus. Bridge with `postMessage` if needed.
+- **One user per process** (a CLI, a worker, Electron's main process): run
+  `globalThis.__NF_BUS__ ??= createBus();` at startup. Never on a server that serves many users.
+- **Server-side rendering**: install the request-scoped bus from
+  [the SSR recipe](./recipes.md#server-side-rendering) at boot.
+- **A server that sets `global.window = global`** (some DOM shims), and Deno 1.x, look like a browser
+  page, so the first copy would install one bus for all requests. The SSR recipe's bus, installed at
+  boot, prevents that.

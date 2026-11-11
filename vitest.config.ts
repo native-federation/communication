@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 import { version } from './package.json';
 
@@ -38,6 +39,13 @@ export default defineConfig({
           include: ['test/**/*.spec.ts'],
           environment: 'jsdom',
           globalSetup: ['test/global-setup.ts'],
+          // The recipes import the package by name, as the docs show; they run against the build.
+          alias: {
+            '@softarc/native-federation-communication': resolve(
+              __dirname,
+              'test/.dist/fesm2022/@softarc/native-federation-communication.mjs'
+            ),
+          },
         },
       },
     ],

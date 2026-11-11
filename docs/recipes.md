@@ -2,14 +2,12 @@
 
 # Recipes
 
-The package ships no framework adapters: `on` returns the cleanup function every framework already
-asks for. These recipes are small enough to copy into your app. They import `bus` from the package;
-`__NF_BUS__` works the same way.
+There are no framework adapters: `on` returns the cleanup function every framework asks for. Copy what
+you need.
 
 ## Angular
 
-Subscribe in an injection context and hand `off` to `DestroyRef`. Seed the signal with `peek`, so the
-component renders the retained value without waiting:
+Hand `off` to `DestroyRef`, and seed the signal with `peek` so the first render has the value:
 
 ```ts
 import { DestroyRef, inject, signal, type Signal } from '@angular/core';
@@ -24,27 +22,8 @@ export function channelSignal<K extends ChannelName>(
 }
 ```
 
-```ts
-@Component({
-  selector: 'app-cart-badge',
-  template: `{{ cart()?.count ?? 0 }}`,
-})
-export class CartBadge {
-  readonly cart = channelSignal('cart:changed');
-}
-```
-
-For a command channel, subscribe directly instead: there is no value to show, only something to do.
-
-```ts
-constructor() {
-  inject(DestroyRef).onDestroy(bus.on('ui:toast', ({ text }) => this.snackBar.open(text)));
-}
-```
-
-`inject(DestroyRef)` works the same in a root service or in `provideAppInitializer`. There it is the
-environment injector's `DestroyRef`: the listener lives as long as the app, and a `TestBed` reset
-releases it instead of leaking it into the next test.
+A command has nothing to show, so subscribe directly. In `provideAppInitializer` or a root service the
+listener lives as long as the app, and a `TestBed` reset removes it:
 
 ```ts
 provideAppInitializer(() => {
@@ -55,138 +34,96 @@ provideAppInitializer(() => {
 
 ## React
 
-Subscribe in an effect; `on` returns the effect's cleanup:
+For a command, `on` is the effect's cleanup:
+`useEffect(() => bus.on('ui:toast', ({ text }) => toast(text)), [])`. For state:
 
-```tsx
-useEffect(() => bus.on('ui:toast', ({ text }) => toast(text)), []);
-```
-
-For state, `useSyncExternalStore` reads the retained value without tearing. The third argument is
-required for server rendering, where the bus is inert:
-
-```tsx
+```js
 import { useCallback, useSyncExternalStore } from 'react';
-import { bus, type ChannelName, type ChannelValue } from '@softarc/native-federation-communication';
+import { bus } from '@softarc/native-federation-communication';
 
-export function useChannel<K extends ChannelName>(channel: K): ChannelValue<K> | undefined {
-  const subscribe = useCallback((onChange: () => void) => bus.on(channel, onChange), [channel]);
+/**
+ * @template {import('@softarc/native-federation-communication').ChannelName} K
+ * @param {K} channel
+ * @returns {import('@softarc/native-federation-communication').ChannelValue<K> | undefined}
+ */
+export function useChannel(channel) {
+  const subscribe = useCallback(onChange => bus.on(channel, onChange), [channel]);
   return useSyncExternalStore(
     subscribe,
     () => bus.peek(channel),
     () => undefined
   );
 }
-
-function CartBadge() {
-  const cart = useChannel('cart:changed');
-  return <span>{cart?.count ?? 0}</span>;
-}
 ```
-
-This relies on producers emitting a new object for every change (see
-[Pitfalls](./api.md#pitfalls)).
 
 ## RxJS
 
-Don't pass RxJS objects across the bus. Each micro frontend bundles its own RxJS, and an `Observable`
-from one bundle doesn't reliably work with operators from another. Keep everything that crosses a bundle
-boundary plain JavaScript, and wrap the bus with **your own** RxJS at your own edge:
+Each micro frontend bundles its own RxJS, so send plain values over the bus and wrap it with your own:
 
-```ts
+```js
 import { Observable } from 'rxjs';
-import { bus, type ChannelName, type ChannelValue } from '@softarc/native-federation-communication';
+import { bus } from '@softarc/native-federation-communication';
 
-export const fromChannel = <K extends ChannelName>(channel: K) =>
-  new Observable<ChannelValue<K>>(subscriber => bus.on(channel, value => subscriber.next(value)));
+/**
+ * @template {import('@softarc/native-federation-communication').ChannelName} K
+ * @param {K} channel
+ * @returns {Observable<import('@softarc/native-federation-communication').ChannelValue<K>>}
+ */
+export const fromChannel = channel =>
+  new Observable(subscriber => bus.on(channel, value => subscriber.next(value)));
 ```
 
-`off` becomes the Observable's teardown, so `takeUntilDestroyed`, `take(1)` or `async` release the
-listener. The retained value arrives synchronously on subscribe, like a `BehaviorSubject`.
+`off` becomes the teardown, and the retained value arrives on subscribe, like a `BehaviorSubject`.
 
-To publish from a stream, subscribe and emit:
+## `firstValue`
 
-```ts
-cart$.subscribe(cart => bus.emit('cart:changed', { count: cart.items.length }));
-```
+For app initializers, guards and top-level `await`: resolves with the retained or the next value, then
+unsubscribes. It aborts its own controller, because `off` doesn't exist yet during the first call.
 
-## Wait for a first value: `firstValue`
+```js
+import { bus } from '@softarc/native-federation-communication';
 
-Promises fit app initializers, route guards, loaders and top-level `await`. `firstValue` resolves with
-the retained value, or with the next emit if there is none yet. It then unsubscribes, and it rejects if
-`signal` aborts first:
-
-```ts
-import { bus, type ChannelName, type ChannelValue } from '@softarc/native-federation-communication';
-
-export function firstValue<K extends ChannelName>(
-  channel: K,
-  { signal }: { signal?: AbortSignal } = {}
-): Promise<ChannelValue<K>> {
+/**
+ * @template {import('@softarc/native-federation-communication').ChannelName} K
+ * @param {K} channel
+ * @param {{ signal?: AbortSignal }} [options]
+ * @returns {Promise<import('@softarc/native-federation-communication').ChannelValue<K>>}
+ */
+export function firstValue(channel, { signal } = {}) {
   return new Promise((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(signal.reason);
-      return;
-    }
     const done = new AbortController();
-    const onAbort = (): void => {
-      done.abort();
-      reject(signal?.reason);
-    };
-    signal?.addEventListener('abort', onAbort, { once: true });
-    bus.on(
-      channel,
-      value => {
-        done.abort();
-        signal?.removeEventListener('abort', onAbort);
-        resolve(value);
-      },
-      { signal: done.signal }
-    );
+    const stop = signal ? AbortSignal.any([signal, done.signal]) : done.signal;
+    if (stop.aborted) return reject(signal?.reason);
+    stop.addEventListener('abort', () => reject(signal?.reason));
+    bus.on(channel, value => (resolve(value), done.abort()), { signal: stop });
   });
 }
 ```
 
-It aborts its own `AbortController` instead of calling `off`, because the retained value arrives before
-`on` returns `off` (see [Pitfalls](./api.md#pitfalls)).
-
-```ts
-const { loadRemoteModule } = await firstValue('orch.init-ready');
-
-// give up after 5 seconds
+```js
 const user = await firstValue('shell:user', { signal: AbortSignal.timeout(5000) });
 ```
 
-**On the server, `firstValue` never settles**, because the bus is inert there. Only await it in code
-that runs in the browser. In Angular:
-
-```ts
-provideAppInitializer(() => {
-  if (!isPlatformBrowser(inject(PLATFORM_ID))) return;
-  const session = inject(Session);
-  return firstValue('shell:user').then(user => session.start(user));
-});
-```
-
-In React, call it from effects or client-side loaders, never during a server render.
+Await it only in the browser: on a server it may never settle.
 
 ## Custom elements
 
-One `AbortController` per connection tears down every subscription at once:
+One `AbortController` per connection removes every subscription at once:
 
-```ts
+```js
 import { bus } from '@softarc/native-federation-communication';
 
 class CartBadge extends HTMLElement {
-  #connection?: AbortController;
+  #connection;
 
-  connectedCallback(): void {
+  connectedCallback() {
     this.#connection = new AbortController();
     const { signal } = this.#connection;
     bus.on('cart:changed', ({ count }) => (this.textContent = String(count)), { signal });
     bus.on('shell:theme', ({ name }) => this.setAttribute('theme', name), { signal });
   }
 
-  disconnectedCallback(): void {
+  disconnectedCallback() {
     this.#connection?.abort();
   }
 }
@@ -194,17 +131,61 @@ class CartBadge extends HTMLElement {
 customElements.define('cart-badge', CartBadge);
 ```
 
+## Server-side rendering
+
+A process-wide bus would show one user's values to the next. Install, once at boot, a bus that forwards
+each call to the current request's own bus:
+
+```js
+import { AsyncLocalStorage } from 'node:async_hooks';
+import { createBus } from '@softarc/native-federation-communication';
+
+const requests = new AsyncLocalStorage();
+
+export function installRequestBus() {
+  let warned = false;
+  const current = () => {
+    const scoped = requests.getStore();
+    if (!scoped && !warned) {
+      warned = true;
+      console.warn('__NF_BUS__ was used outside a request: the call was ignored.');
+    }
+    return scoped;
+  };
+  globalThis.__NF_BUS__ = Object.freeze({
+    protocol: 1,
+    version: createBus().version,
+    emit: (channel, value, options) => current()?.emit(channel, value, options),
+    on: (channel, listener, options) => current()?.on(channel, listener, options) ?? (() => {}),
+    peek: channel => current()?.peek(channel),
+  });
+}
+
+export const withRequestBus = handle => requests.run(createBus(), handle);
+```
+
+```js
+installRequestBus();
+server.on('request', (req, res) => withRequestBus(() => render(req, res)));
+```
+
+Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share the request's
+bus, across `await` too. A call outside a request is dropped with one warning.
+
 ## Testing
 
-App code imports `bus`, which looks up `globalThis.__NF_BUS__` on every call. So give each test a fresh
-bus by replacing that slot, in a setup file:
+App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Replace it in a setup file;
+no DOM environment is needed:
 
-```ts
-// vitest setup file
+```js
 import { createBus } from '@softarc/native-federation-communication';
 
 beforeEach(() => {
   vi.stubGlobal('__NF_BUS__', createBus());
+  // a listener that throws, a failed expect included, now fails the emit and so the test
+  vi.stubGlobal('reportError', error => {
+    throw error;
+  });
 });
 
 afterEach(() => {
@@ -212,9 +193,6 @@ afterEach(() => {
 });
 ```
 
-The slot is read-only but configurable, which makes this possible. Without `vi.stubGlobal` (in Jest, for
-example), `delete globalThis.__NF_BUS__` in a `beforeEach` works too: the next `bus` call installs a new
-bus. Either way the test environment needs a `window` (jsdom or happy-dom); without one, `bus` is inert.
-
-A bare `createBus()` only helps code that receives the bus as a parameter. Code that imports `bus`
-never sees it.
+A rethrown error also skips that `emit`'s remaining deliveries, which is fine in a test. Without
+`vi.stubGlobal`, use
+`Object.defineProperty(globalThis, '__NF_BUS__', { value: createBus(), configurable: true })`.
