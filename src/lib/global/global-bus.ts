@@ -1,19 +1,49 @@
 import type { Bus } from '../domain/bus/bus.contract.js';
-import { createBus, noop, VERSION } from '../bus/create-bus.js';
+import { assertChannel, assertListener, createBus, noop, VERSION } from '../bus/create-bus.js';
+
+const METHODS = ['emit', 'on', 'peek'] as const;
+
+let fallback: Bus | undefined;
+let warnedInert = false;
+
+function warnInert(): void {
+  if (warnedInert) return;
+  warnedInert = true;
+  console.warn(
+    '[native-federation-communication] No bus is installed outside a browser page, so this bus drops ' +
+      'every value. On a server, install a request-scoped bus at boot (see "Outside a browser" in the ' +
+      'docs). Only in a single-user process: globalThis.__NF_BUS__ ??= createBus().'
+  );
+}
 
 const inert: Bus = Object.freeze({
   protocol: 1,
   version: VERSION,
-  emit: noop,
-  on: () => noop,
-  peek: () => undefined,
+  emit: (channel: string) => {
+    assertChannel(channel);
+    warnInert();
+  },
+  on: (channel: string, listener: unknown) => {
+    assertChannel(channel);
+    assertListener(listener);
+    warnInert();
+    return noop;
+  },
+  peek: (channel: string) => {
+    assertChannel(channel);
+    warnInert();
+    return undefined;
+  },
 });
 
-let fallback: Bus | undefined;
-
 const isBus = (slot: unknown): slot is Bus => {
-  const protocol: unknown = (slot as Partial<Bus> | null | undefined)?.protocol;
-  return typeof protocol === 'number' && protocol >= 1;
+  const candidate = slot as Record<string, unknown> | null | undefined;
+  const protocol = candidate?.protocol;
+  return (
+    typeof protocol === 'number' &&
+    protocol >= 1 &&
+    METHODS.every(method => typeof candidate?.[method] === 'function')
+  );
 };
 
 function foreignFallback(): Bus {
@@ -29,21 +59,29 @@ function foreignFallback(): Bus {
 
 function install(): Bus {
   const created = createBus();
-  Object.defineProperty(globalThis, '__NF_BUS__', {
-    value: created,
-    writable: false,
-    configurable: true,
-    enumerable: false,
-  });
-  return created;
+  try {
+    Object.defineProperty(globalThis, '__NF_BUS__', {
+      value: created,
+      writable: false,
+      configurable: true,
+      enumerable: false,
+    });
+  } catch {
+    // A classic script's `var __NF_BUS__;` makes the slot non-configurable, but still writable.
+    Reflect.set(globalThis, '__NF_BUS__', created);
+  }
+  const slot: unknown = globalThis.__NF_BUS__;
+  return isBus(slot) ? slot : foreignFallback();
 }
 
+// One realm per user: a browser page, not a server process (a shim may define `window` there).
+const isPage = (): boolean => typeof window !== 'undefined' && window === globalThis;
+
 export function getGlobalBus(): Bus {
-  // no window: SSR or worker, never share retained values across requests
-  if (typeof window === 'undefined') return inert;
   const slot: unknown = globalThis.__NF_BUS__;
   if (isBus(slot)) return slot;
-  return slot === undefined ? install() : foreignFallback();
+  if (slot !== undefined) return foreignFallback();
+  return isPage() ? install() : inert;
 }
 
 export const bus: Bus = Object.freeze({

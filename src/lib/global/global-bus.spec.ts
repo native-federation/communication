@@ -82,10 +82,14 @@ describe('the page bus', () => {
   });
 
   it.each([
-    ['an object without protocol', { emit: () => {} }],
-    ['a protocol below 1', { protocol: 0 }],
-    ['a non-numeric protocol', { protocol: '1' }],
+    ['an object without protocol', { emit: () => {}, on: () => {}, peek: () => {} }],
+    ['a protocol below 1', { protocol: 0, emit: () => {}, on: () => {}, peek: () => {} }],
+    ['a non-numeric protocol', { protocol: '1', emit: () => {}, on: () => {}, peek: () => {} }],
+    ['a protocol without methods', { protocol: 1 }],
+    ['a protocol without peek', { protocol: 1, emit: () => {}, on: () => {} }],
+    ['methods that are not functions', { protocol: 1, emit: 1, on: 1, peek: 1 }],
     ['null', null],
+    ['a number', 1],
   ])('warns once and uses a private bus when the key holds %s', async (_, foreign) => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = foreign;

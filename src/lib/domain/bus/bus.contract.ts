@@ -9,8 +9,7 @@ export type EmitOptions = { retain?: boolean };
 // replay: false = skip the retained value and receive live values only.
 export type OnOptions = { signal?: AbortSignal; replay?: boolean };
 
-// Every copy on a page shares this shape through globalThis.__NF_BUS__: members and options are
-// append-only, and a breaking change needs a new global key.
+// The typed view of a bus; typed access goes through `bus` or `createBus()`.
 export type Bus = {
   readonly protocol: number;
   readonly version: string;
@@ -24,5 +23,15 @@ export type Bus = {
 };
 
 declare global {
-  var __NF_BUS__: Bus | undefined;
+  // Every copy's declaration merges into this one interface, so a member never changes type and a
+  // later one is added optional. An option or semantic change that an older bus would ignore needs a
+  // protocol bump that callers check before relying on it.
+  interface NativeFederationBus {
+    readonly protocol: number;
+    readonly version: string;
+    emit(channel: string, value: unknown, options?: EmitOptions): void;
+    on(channel: string, listener: (value: unknown) => void, options?: OnOptions): () => void;
+    peek(channel: string): unknown;
+  }
+  var __NF_BUS__: NativeFederationBus | undefined;
 }
