@@ -1,0 +1,47 @@
+{
+  "version": "4.0.0",
+  "name": "@softarc/native-federation-communication",
+  "author": "Aukevanoost",
+  "keywords": [
+    "native-federation",
+    "native-federation-communication",
+    "micro-frontends",
+    "event-bus"
+  ],
+  "scripts": {
+    "build": "node build.js",
+    "lint": "eslint . -c eslint.config.js",
+    "knip": "knip",
+    "test-ci": "vitest run --coverage.reporter=json-summary",
+    "test": "vitest run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/native-federation/communication.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "devEngines": {
+    "runtime": {
+      "name": "node",
+      "version": ">=24.16.0",
+      "onFail": "error"
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@typescript-eslint/eslint-plugin": "^8.69.0",
+    "@typescript-eslint/parser": "^8.69.0",
+    "@vitest/coverage-v8": "^4.1.11",
+    "esbuild": "^0.28.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-prettier": "^5.2.6",
+    "globals": "^17.7.0",
+    "knip": "^6.41.0",
+    "typescript": "^6.0.0",
+    "vitest": "^4.1.11"
+  },
+  "sideEffects": false
+}

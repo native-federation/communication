@@ -1,0 +1,41 @@
+name: Generate code-coverage badge
+on:
+  push:
+    branches:
+      - main
+jobs:
+  generate-badges-on-custom-branch:
+    name: Generate badges on the badges branch
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.x"
+      - name: Setup PNPM
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Delete remote badges branch
+        run: git push origin --delete badges
+
+      - name: Create badges branch
+        run: git checkout -b badges
+
+      - name: Tests
+        run: pnpm test-ci
+
+      - name: Generating coverage badges
+        uses: jpb06/coverage-badges-action@6bebba3f008cb03c2be0ff9b148c663df30cde4b # v1.4.11
+        with:
+          branches: "main"
+          target-branch: badges
+
+      - name: Push badges branch
+        run: git push origin badges

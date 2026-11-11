@@ -1,0 +1,69 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:best-practices",
+    "group:recommended",
+    "schedule:weekly"
+  ],
+  "timezone": "Europe/Amsterdam",
+  "prConcurrentLimit": 5,
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "description": "Do not open 'Pin dependencies' PRs",
+      "matchUpdateTypes": [
+        "pin"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Group the eslint/prettier toolchain into one PR",
+      "groupName": "linting",
+      "matchPackageNames": [
+        "eslint",
+        "eslint-**",
+        "@eslint/**",
+        "@typescript-eslint/**",
+        "globals"
+      ]
+    },
+    {
+      "description": "Group the test toolchain into one PR",
+      "groupName": "testing",
+      "matchPackageNames": [
+        "vitest",
+        "@vitest/**",
+        "jsdom"
+      ]
+    },
+    {
+      "description": "Automerge minor/patch devDependency updates once CI passes",
+      "matchDepTypes": [
+        "devDependencies"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Automerge GitHub Actions digest/minor/patch updates",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest"
+      ],
+      "automerge": true
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true
+  }
+}

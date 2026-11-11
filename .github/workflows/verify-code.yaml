@@ -1,0 +1,43 @@
+name: Code checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  verify:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: "24.x"
+      - name: Setup PNPM
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11
+
+      - name: Dependencies OK
+        run: pnpm install --frozen-lockfile
+
+      - name: Build OK
+        run: pnpm build
+
+      - name: Types OK
+        run: pnpm tsc --noEmit -p tsconfig.json
+
+      - name: Lint OK
+        run: pnpm lint
+
+      - name: Knip OK
+        run: pnpm knip
+
+      - name: Test OK
+        run: pnpm test
+
+      - name: Audit OK
+        run: pnpm audit --audit-level high
+        env:
+          CI: true
