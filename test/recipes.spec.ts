@@ -117,17 +117,72 @@ describe('the request bus recipe', () => {
     await expect(Promise.all([seen('a'), seen('b')])).resolves.toEqual(['a', 'b']);
   });
 
+  // Each await yields a macrotask, so the two requests alternate step by step.
+  it('keeps interleaved requests apart: retained values, replay and listeners', async () => {
+    const { installRequestBus, withRequestBus } = await recipe('request-bus');
+    installRequestBus();
+    const { bus } = await import(pkg);
+    const turn = () => new Promise(resolve => setTimeout(resolve));
+    const request = (user: string) =>
+      withRequestBus(async () => {
+        const live: unknown[] = [];
+        bus.on('recipe:cart', (value: unknown) => live.push(value));
+        await turn();
+        bus.emit('recipe:user', user);
+        await turn();
+        bus.emit('recipe:cart', `${user}-cart`);
+        await turn();
+        const replayed: unknown[] = [];
+        globalThis.__NF_BUS__?.on('recipe:user', value => replayed.push(value));
+        return { live, replayed, peeked: bus.peek('recipe:user') };
+      });
+
+    const [a, b] = await Promise.all([request('a'), request('b')]);
+
+    expect(a).toEqual({ live: ['a-cart'], replayed: ['a'], peeked: 'a' });
+    expect(b).toEqual({ live: ['b-cart'], replayed: ['b'], peeked: 'b' });
+  });
+
+  it('leaves nothing behind for the next request', async () => {
+    const { installRequestBus, withRequestBus } = await recipe('request-bus');
+    installRequestBus();
+    await withRequestBus(async () => globalThis.__NF_BUS__?.emit('recipe:user', 'a'));
+
+    const next = withRequestBus(() => globalThis.__NF_BUS__?.peek('recipe:user'));
+
+    expect(next).toBeUndefined();
+  });
+
   it('ignores a call outside a request and warns once', async () => {
     const { installRequestBus } = await recipe('request-bus');
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     installRequestBus();
 
+    const listener = vi.fn();
+
     globalThis.__NF_BUS__?.emit('recipe:user', 'a');
-    const off = globalThis.__NF_BUS__?.on('recipe:user', () => {});
+    const off = globalThis.__NF_BUS__?.on('recipe:user', listener);
+    globalThis.__NF_BUS__?.emit('recipe:user', 'b');
 
     expect(globalThis.__NF_BUS__?.peek('recipe:user')).toBeUndefined();
+    expect(listener).not.toHaveBeenCalled();
     expect(off).toBeTypeOf('function');
     expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0]?.[0]).toMatch(/outside a request/);
+  });
+
+  it('still serves requests after an out-of-scope call', async () => {
+    const { installRequestBus, withRequestBus } = await recipe('request-bus');
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    installRequestBus();
+    globalThis.__NF_BUS__?.emit('recipe:user', 'outside');
+
+    const seen = withRequestBus(() => {
+      globalThis.__NF_BUS__?.emit('recipe:user', 'inside');
+      return globalThis.__NF_BUS__?.peek('recipe:user');
+    });
+
+    expect(seen).toBe('inside');
   });
 
   it('is a bus for every copy of the package', async () => {
@@ -140,5 +195,7 @@ describe('the request bus recipe', () => {
       expect(globalThis.__NF_BUS__?.peek('recipe:user')).toBe('a');
     });
     expect(createBus().version).toBe(globalThis.__NF_BUS__?.version);
+    expect(globalThis.__NF_BUS__?.protocol).toBe(1);
+    expect(Object.isFrozen(globalThis.__NF_BUS__)).toBe(true);
   });
 });
