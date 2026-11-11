@@ -32,6 +32,7 @@ build.js            esbuild bundles + tsc declarations + the dist package.json
    - `pnpm lint`
    - `pnpm knip`
    - `pnpm test`
+   - `pnpm audit --audit-level high`
 7. Push your branch and open a PR
 
 ## Pull Request Guidelines

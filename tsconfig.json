@@ -6,7 +6,6 @@
     "moduleResolution": "Bundler",
 
     "strict": true,
-    "useUnknownInCatchVariables": true,
 
     "noUnusedLocals": true,
     "noUnusedParameters": true,
