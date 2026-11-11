@@ -19,7 +19,7 @@ the registry were separate; on the bus they are the same channel.
 | `declare global { interface Window { __NF_REGISTRY__ … } }`     | delete it: the package declares `__NF_BUS__` itself                                                                                         |
 | `window.__NF_REGISTRY__`                                        | `window.__NF_BUS__`, or `import { bus } from '@softarc/native-federation-communication'`                                                    |
 | `emit<Events['x']>('x', …)`, `on<Events['x']>(…)`               | `emit('x', …)`, `on('x', …)`: see [Typing](#typing)                                                                                         |
-| `register(name, value)`                                         | `emit(name, value)`                                                                                                                         |
+| `register(name, value)`                                         | `emit(name, value)`: `register` returned a Promise that callers awaited, `emit` returns `void`, so drop the `await`                         |
 | `register(name, load)`                                          | `emit(name, await load())`: a function is now emitted as a value, not called                                                                |
 | `register(name, () => fn)`, to publish the function `fn`        | `emit(name, fn)`, without the wrapper (see the warning below)                                                                               |
 | `onReady(name, callback)`                                       | `on(name, callback)` for a channel emitted once, or the [`firstValue`](./recipes.md#wait-for-a-first-value-firstvalue) recipe for a promise |

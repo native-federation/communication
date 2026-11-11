@@ -212,7 +212,7 @@ afterEach(() => {
 });
 ```
 
-The slot is read-only but configurable, for exactly this. Without `vi.stubGlobal` (in Jest, for
+The slot is read-only but configurable, which makes this possible. Without `vi.stubGlobal` (in Jest, for
 example), `delete globalThis.__NF_BUS__` in a `beforeEach` works too: the next `bus` call installs a new
 bus. Either way the test environment needs a `window` (jsdom or happy-dom); without one, `bus` is inert.
 
