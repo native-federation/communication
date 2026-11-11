@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
-import { version } from '../../package.json';
-import type { Bus } from './bus.contract';
+import { version } from '../../../package.json';
+import type { Bus } from '../domain/bus/bus.contract.js';
 
 // Each test gets a fresh copy of the module (and so a fresh private fallback) and an empty slot.
 async function loadCopy() {
   vi.resetModules();
-  return import('./global-bus');
+  return import('./global-bus.js');
 }
 
 describe('the page bus', () => {

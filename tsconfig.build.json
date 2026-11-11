@@ -9,6 +9,6 @@
     "emitDeclarationOnly": true,
     "sourceMap": true
   },
-  "include": ["src/lib/**/*"],
+  "include": ["src/index.ts", "src/domain.ts", "src/lib/**/*"],
   "exclude": ["src/**/*.spec.ts"]
 }

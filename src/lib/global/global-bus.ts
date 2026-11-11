@@ -1,5 +1,5 @@
-import type { Bus } from './bus.contract';
-import { createBus, noop, VERSION } from './create-bus';
+import type { Bus } from '../domain/bus/bus.contract.js';
+import { createBus, noop, VERSION } from '../bus/create-bus.js';
 
 const inert: Bus = Object.freeze({
   protocol: 1,

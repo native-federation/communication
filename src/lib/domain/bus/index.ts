@@ -1,5 +1,3 @@
-export { createBus } from './create-bus';
-export { bus } from './global-bus';
 export type {
   Bus,
   ChannelName,
@@ -9,4 +7,4 @@ export type {
   Listener,
   OnOptions,
   Unsubscribe,
-} from './bus.contract';
+} from './bus.contract.js';

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
-import { bus, createBus, type ChannelName, type ChannelValue } from './index';
+import { bus, createBus, type ChannelName, type ChannelValue } from './index.js';
 
 // The firstValue recipe from docs/recipes.md, verbatim between the markers; the last test keeps
 // the two in sync.
@@ -101,7 +101,7 @@ describe('the firstValue recipe', () => {
 
   // vitest runs from the repository root; jsdom's URL rejects file: URLs for readFileSync.
   it('is the recipe published in docs/recipes.md', () => {
-    const spec = readFileSync('src/lib/recipes.spec.ts', 'utf8');
+    const spec = readFileSync('src/recipes.spec.ts', 'utf8');
     const recipe = spec.split('// recipe:start\n')[1]?.split('// recipe:end')[0];
     const docs = readFileSync('docs/recipes.md', 'utf8');
 

@@ -1,10 +1,10 @@
-import { version } from '../../package.json';
-import { collect, stubReportError, type Collected } from '../../test/helpers';
-import type { Bus, ChannelValue } from './bus.contract';
-import { createBus } from './create-bus';
+import { version } from '../../../package.json';
+import { collect, stubReportError, type Collected } from '../../../test/helpers.js';
+import type { Bus, ChannelValue } from '../domain/bus/bus.contract.js';
+import { createBus } from './create-bus.js';
 
 // The one augmentation in the suite; `test:` names keep it from colliding with real channels.
-declare module './bus.contract' {
+declare module '../domain/bus/bus.contract.js' {
   interface Channels {
     'test:count': number;
     'test:user': { name: string };

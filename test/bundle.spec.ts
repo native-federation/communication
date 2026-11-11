@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import vm from 'node:vm';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { version } from '../package.json';
-import type { Bus } from '../src/lib/bus.contract';
+import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
 
 // These specs run against the published artifacts that global-setup.ts builds into test/.dist.
 const DIST = resolve(__dirname, '.dist');

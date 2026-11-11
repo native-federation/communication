@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import fc from 'fast-check';
-import type { Bus } from '../src/lib/bus.contract';
-import { createBus } from '../src/lib/create-bus';
-import { stubReportError } from './helpers';
+import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
+import { createBus } from '../src/lib/bus/create-bus.js';
+import { stubReportError } from './helpers.js';
 
 /**
  * Properties of the bus against small reference models. Each property has its own fixed seed, so a
@@ -234,7 +234,7 @@ describe('bus properties', () => {
     const copies: { bus: Bus }[] = [];
     for (let i = 0; i < 3; i++) {
       vi.resetModules();
-      copies.push(await import('../src/lib/global-bus'));
+      copies.push(await import('../src/lib/global/global-bus.js'));
     }
     expect(new Set(copies.map(c => c.bus)).size).toBe(3);
     const op: fc.Arbitrary<CopyOp> = fc.oneof(

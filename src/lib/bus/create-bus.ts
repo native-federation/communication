@@ -1,4 +1,4 @@
-import type { Bus, Listener, OnOptions, EmitOptions, Unsubscribe } from './bus.contract';
+import type { Bus, Listener, OnOptions, EmitOptions, Unsubscribe } from '../domain/bus/bus.contract.js';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
 export const VERSION = __NF_COMMUNICATION_VERSION__;

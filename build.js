@@ -42,8 +42,17 @@ function generateBundles() {
     [PACKAGE_NAME]: {
       ...baseConfig,
       format: 'esm',
-      entryPoints: ['src/lib/index.ts'],
+      entryPoints: ['src/index.ts'],
       outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication.mjs'),
+      minify: false,
+      sourcemap: true,
+    },
+
+    [`${PACKAGE_NAME}/domain`]: {
+      ...baseConfig,
+      format: 'esm',
+      entryPoints: ['src/domain.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-domain.mjs'),
       minify: false,
       sourcemap: true,
     },
@@ -51,7 +60,7 @@ function generateBundles() {
     [`${PACKAGE_NAME}/init-bus.js`]: {
       ...baseConfig,
       format: 'iife',
-      entryPoints: ['src/scripts/init-bus.ts'],
+      entryPoints: ['src/init-bus.ts'],
       outfile: path.join(OUT_DIR, 'init-bus.js'),
       minify: true,
       sourcemap: false,
@@ -63,13 +72,19 @@ function generatePackageExports() {
   return {
     exports: {
       './package.json': { default: './package.json' },
-      './init-bus.js': { default: './init-bus.js' },
       '.': {
-        types: './types/lib/index.d.ts',
+        types: './types/index.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}.mjs`,
       },
+      './domain': {
+        types: './types/domain.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
+      },
+      './init-bus.js': { default: './init-bus.js' },
     },
-    typings: './types/lib/index.d.ts',
+    typings: './types/index.d.ts',
     module: `./fesm2022/${PACKAGE_NAME}.mjs`,
     type: 'module',
     sideEffects: ['./init-bus.js'],

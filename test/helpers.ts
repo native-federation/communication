@@ -1,5 +1,5 @@
 import type { Mock } from 'vitest';
-import type { Bus, OnOptions, Unsubscribe } from '../src/lib/bus.contract';
+import type { Bus, OnOptions, Unsubscribe } from '../src/lib/domain/bus/bus.contract.js';
 
 export type Collected = { values: unknown[]; off: Unsubscribe };
 
