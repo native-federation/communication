@@ -23,7 +23,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Delete remote badges branch
-        run: git push origin --delete badges
+        run: |
+          if git ls-remote --exit-code --heads origin badges; then
+            git push origin --delete badges
+          fi
 
       - name: Create badges branch
         run: git checkout -b badges
