@@ -8,7 +8,6 @@ export default defineConfig({
     clearMocks: true,
     restoreMocks: true,
     unstubGlobals: true,
-    passWithNoTests: true,
     coverage: {
       enabled: true,
       provider: 'v8',
