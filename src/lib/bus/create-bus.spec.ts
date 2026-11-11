@@ -303,6 +303,120 @@ describe('createBus', () => {
     });
   });
 
+  describe('replay: false', () => {
+    // The subscriber's defence against a producer that forgot retain: false on a command.
+    it.each([false, 0, null, ''])(
+      'skips the retained value with replay: %j, then gets live ones',
+      replay => {
+        bus.emit('a', 'stale');
+
+        const received = collect(bus, 'a', { replay: replay as boolean });
+        bus.emit('a', 'live');
+
+        expect(received.values).toEqual(['live']);
+        expect(bus.peek('a')).toBe('live');
+      }
+    );
+
+    it.each([undefined, true, 1, 'yes'])('replays with replay: %j', replay => {
+      bus.emit('a', 1);
+
+      const received = collect(bus, 'a', { replay: replay as boolean });
+
+      expect(received.values).toEqual([1]);
+    });
+
+    it('still unsubscribes through its off and its signal', () => {
+      const controller = new AbortController();
+      const viaOff = collect(bus, 'a', { replay: false });
+      const viaSignal = collect(bus, 'a', { replay: false, signal: controller.signal });
+      bus.emit('a', 1);
+      viaOff.off();
+      controller.abort();
+      bus.emit('a', 2);
+
+      expect(viaOff.values).toEqual([1]);
+      expect(viaSignal.values).toEqual([1]);
+    });
+  });
+
+  describe('argument handling', () => {
+    const notStrings = [undefined, null, 42, Symbol('a'), { toString: () => 'a' }];
+
+    it.each(notStrings)('throws a TypeError for the channel %s in emit, on and peek', channel => {
+      const name = channel as string;
+
+      expect(() => bus.emit(name, 1)).toThrow(TypeError);
+      expect(() => bus.on(name, () => {})).toThrow(TypeError);
+      expect(() => bus.peek(name)).toThrow(TypeError);
+    });
+
+    // A subscribed non-function would fail at the next emit, reported far from the cause.
+    it.each([undefined, null, 'fn', {}])(
+      'throws a TypeError for the listener %s and subscribes nothing',
+      fn => {
+        const reported = stubReportError();
+        bus.emit('a', 1);
+
+        expect(() => bus.on('a', fn as () => void)).toThrow(TypeError);
+        bus.emit('a', 2);
+
+        expect(reported).not.toHaveBeenCalled();
+      }
+    );
+
+    it('checks the channel before the listener, so swapped arguments name the channel', () => {
+      const swapped = () => bus.on((() => {}) as unknown as string, 'a' as unknown as () => void);
+
+      expect(swapped).toThrow(/channel must be a string, got function/);
+    });
+
+    it('throws for a listener even when the signal is already aborted', () => {
+      expect(() =>
+        bus.on('a', undefined as unknown as () => void, { signal: AbortSignal.abort() })
+      ).toThrow(TypeError);
+    });
+
+    it('throws for a signal that is not an AbortSignal and leaves no listener behind', () => {
+      const listener = vi.fn();
+      const signal = new AbortController() as unknown as AbortSignal;
+
+      expect(() => bus.on('a', listener, { signal })).toThrow(TypeError);
+      bus.emit('a', 1);
+
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    it.each([false, 0, null, ''])('retains nothing with retain: %j', retain => {
+      bus.emit('a', 1);
+      bus.emit('a', 2, { retain: retain as boolean });
+
+      expect(bus.peek('a')).toBeUndefined();
+      expect(collect(bus, 'a').values).toEqual([]);
+    });
+
+    it.each([undefined, true, 1])('retains with retain: %j', retain => {
+      bus.emit('a', 1, { retain: retain as boolean });
+
+      expect(bus.peek('a')).toBe(1);
+    });
+
+    it.each([null, 0, 'x'])('reads %j as options with nothing set', options => {
+      bus.emit('a', 1, options as never);
+
+      expect(collect(bus, 'a', options as never).values).toEqual([1]);
+    });
+
+    it('has finished the replay when on returns', () => {
+      bus.emit('a', 1);
+      let replayed = false;
+
+      bus.on('a', () => (replayed = true));
+
+      expect(replayed).toBe(true);
+    });
+  });
+
   describe('error isolation', () => {
     it('reports a throwing listener; siblings run and emit does not throw', () => {
       const reported = stubReportError();
@@ -501,6 +615,8 @@ describe('createBus', () => {
       bus.emit('test:count', 'one');
       // @ts-expect-error retain is a boolean
       bus.emit('test:count', 1, { retain: 'no' });
+      // @ts-expect-error replay is a boolean
+      bus.on('test:count', () => {}, { replay: 'no' });
     });
   });
 });

@@ -1,4 +1,10 @@
-import type { Bus, Listener, OnOptions, EmitOptions, Unsubscribe } from '../domain/bus/bus.contract.js';
+import type {
+  Bus,
+  Listener,
+  OnOptions,
+  EmitOptions,
+  Unsubscribe,
+} from '../domain/bus/bus.contract.js';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
 export const VERSION = __NF_COMMUNICATION_VERSION__;
@@ -8,6 +14,25 @@ type Channel = { has: boolean; value: unknown; subs: Set<Sub>; dropIfEmpty: () =
 type Task = () => void;
 
 export const noop = (): void => {};
+
+export function assertChannel(channel: unknown): void {
+  if (typeof channel !== 'string') {
+    throw new TypeError(
+      `[native-federation-communication] A channel must be a string, got ${typeof channel}.`
+    );
+  }
+}
+
+export function assertListener(listener: unknown): void {
+  if (typeof listener !== 'function') {
+    throw new TypeError(
+      `[native-federation-communication] A listener must be a function, got ${typeof listener}.`
+    );
+  }
+}
+
+// Read like a WebIDL boolean with a true default, so a migrated `{ replay: 0 }` means off.
+const enabled = (option: unknown): boolean => option === undefined || Boolean(option);
 
 function report(error: unknown): void {
   if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
@@ -68,13 +93,14 @@ function open(channels: Map<string, Channel>, name: string): Channel {
 }
 
 function subscribe(channel: Channel, sub: Sub, signal?: AbortSignal): Unsubscribe {
-  channel.subs.add(sub);
   const off = (): void => {
     channel.subs.delete(sub);
     signal?.removeEventListener('abort', off);
     channel.dropIfEmpty();
   };
+  // Before subs.add: a signal that is not an AbortSignal throws here and leaves no listener behind.
   signal?.addEventListener('abort', off, { once: true });
+  channel.subs.add(sub);
   return off;
 }
 
@@ -82,9 +108,14 @@ export function createBus(): Bus {
   const channels = new Map<string, Channel>();
   const { hold, enqueue } = createQueue();
 
+  const replayRetained = (channel: Channel, sub: Sub): void => {
+    if (channel.has) hold(() => deliver(sub, channel.value));
+  };
+
   const emit = (name: string, value: unknown, options?: EmitOptions): void => {
+    assertChannel(name);
     const channel = open(channels, name);
-    channel.has = options?.retain !== false;
+    channel.has = enabled(options?.retain);
     channel.value = channel.has ? value : undefined;
     const subs = [...channel.subs];
     channel.dropIfEmpty();
@@ -92,16 +123,19 @@ export function createBus(): Bus {
   };
 
   const on = (name: string, fn: Listener<unknown>, options?: OnOptions): Unsubscribe => {
-    const signal = options?.signal;
+    assertChannel(name);
+    assertListener(fn);
+    const { signal, replay } = options ?? {};
     if (signal?.aborted) return noop;
     const channel = open(channels, name);
     const sub = { fn };
     const off = subscribe(channel, sub, signal);
-    if (channel.has) hold(() => deliver(sub, channel.value));
+    if (enabled(replay)) replayRetained(channel, sub);
     return off;
   };
 
   const peek = (name: string): unknown => {
+    assertChannel(name);
     const channel = channels.get(name);
     return channel?.has ? channel.value : undefined;
   };

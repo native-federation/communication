@@ -6,7 +6,8 @@ export type Listener<T> = (value: T) => void;
 export type Unsubscribe = () => void;
 // retain: false = deliver to current listeners only and clear the channel's retained value.
 export type EmitOptions = { retain?: boolean };
-export type OnOptions = { signal?: AbortSignal };
+// replay: false = skip the retained value and receive live values only.
+export type OnOptions = { signal?: AbortSignal; replay?: boolean };
 
 // Every copy on a page shares this shape through globalThis.__NF_BUS__: members and options are
 // append-only, and a breaking change needs a new global key.
