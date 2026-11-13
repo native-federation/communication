@@ -1,5 +1,6 @@
 // Augmented by consumers via declaration merging.
 export interface Channels {}
+// `string & {}` accepts any name without collapsing the union, so editors still complete declared names.
 export type ChannelName = keyof Channels | (string & {});
 export type ChannelValue<K> = K extends keyof Channels ? Channels[K] : unknown;
 export type Listener<T> = (value: T) => void;

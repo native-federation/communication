@@ -5,6 +5,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -51,9 +52,14 @@ const RESOLUTIONS = {
   bundler: { module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler },
 };
 
-function typeErrors(file: string, resolution: keyof typeof RESOLUTIONS = 'nodenext'): string[] {
-  const options = { ...COMPILER, ...RESOLUTIONS[resolution] };
-  const program = ts.createProgram([join(app, file)], options);
+function typeErrors(
+  files: string | string[],
+  resolution: keyof typeof RESOLUTIONS = 'nodenext',
+  extra: ts.CompilerOptions = {}
+): string[] {
+  const options = { ...COMPILER, ...RESOLUTIONS[resolution], ...extra };
+  const roots = [files].flat().map(file => join(app, file));
+  const program = ts.createProgram(roots, options);
   return ts
     .getPreEmitDiagnostics(program)
     .map(d => `TS${d.code}: ${ts.flattenDiagnosticMessageText(d.messageText, '\n')}`);
@@ -89,6 +95,27 @@ describe('the built package, consumed by name', () => {
       expect(typeErrors('channels.ts', resolution)).toEqual([]);
     }
   );
+
+  it.each(Object.keys(RESOLUTIONS) as (keyof typeof RESOLUTIONS)[])(
+    'types the typing recipes (%s resolution)',
+    resolution => {
+      expect(typeErrors('typing-recipes.ts', resolution)).toEqual([]);
+    }
+  );
+
+  it.each(readdirSync(join(FIXTURES, 'typing')))(
+    'publishes the %s typing recipe verbatim in docs/typing.md',
+    file => {
+      const docs = readFileSync(resolve(__dirname, '../docs/typing.md'), 'utf8');
+      expect(docs).toContain(readFileSync(join(FIXTURES, 'typing', file), 'utf8').trim());
+    }
+  );
+
+  // @ts-expect-error works under checkJs too, so the .js fixture asserts its own errors.
+  it('types a // @ts-check JS consumer through a channels.d.ts', () => {
+    const files = ['js/checked.js', 'js/channels.d.ts'];
+    expect(typeErrors(files, 'nodenext', { allowJs: true, checkJs: true })).toEqual([]);
+  });
 
   // Copies built from different versions all declare the global. Every later d.ts must match 4.0's
   // `var __NF_BUS__` type exactly, so only the interface it names may grow (and only by optional
