@@ -111,7 +111,7 @@ describe('the built package, consumed by name', () => {
     }
   );
 
-  // @ts-expect-error works under checkJs too, so the .js fixture asserts its own errors.
+  // The .js fixture asserts its own errors, since `@ts-expect-error` works under checkJs too.
   it('types a // @ts-check JS consumer through a channels.d.ts', () => {
     const files = ['js/checked.js', 'js/channels.d.ts'];
     expect(typeErrors(files, 'nodenext', { allowJs: true, checkJs: true })).toEqual([]);
