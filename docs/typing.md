@@ -39,7 +39,8 @@ value type as `import('@softarc/native-federation-communication').ChannelValue<'
   constants from your contracts module.
 - **Augment the package name, never `'./domain'`.** Mixing the two in one app can silently drop
   declarations.
-- **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it.
+- **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it, or cast it
+  where you can see it: `bus.peek('legacy:cart') as Cart | undefined`.
 - **A union of names takes a union of values.** With `name: 'cart:changed' | 'ui:toast'`,
   `bus.emit(name, value)` accepts either channel's value. Emit with a literal name.
 - **Commands.** Mark them in the declaration, as above, and emit them through one typed helper:
@@ -50,14 +51,6 @@ value type as `import('@softarc/native-federation-communication').ChannelValue<'
   ```
 
 - **Other deploys.** A deployed producer can still send a shape a deployed consumer doesn't expect.
-
-## Why not `bus.emit<Cart>()`
-
-The type argument of `emit`, `on` and `peek` is the channel name, and TypeScript infers it, so you never
-write it. A value type per call would only be an assertion: a producer could write `emit<CartV2>` while
-a consumer writes `on<CartV1>`, and both would compile. Declared once in `Channels`, the two can't
-disagree. For a value on an undeclared channel, cast it where you can see it:
-`bus.peek('legacy:cart') as Cart | undefined`.
 
 ## Typed handles
 
