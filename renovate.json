@@ -60,6 +60,13 @@
         "digest"
       ],
       "automerge": true
+    },
+    {
+      "description": "Never automerge anything in the release path — it can stage npm releases",
+      "matchFileNames": [
+        ".github/workflows/release.yml"
+      ],
+      "automerge": false
     }
   ],
   "lockFileMaintenance": {
