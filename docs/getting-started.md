@@ -24,7 +24,7 @@ Load `init-bus.js` as a classic script, before any script that uses the bus:
 
 ```html
 <script
-  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.0/init-bus.js"
+  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.1/init-bus.js"
   integrity="sha384-HASH"
   crossorigin="anonymous"
 ></script>
