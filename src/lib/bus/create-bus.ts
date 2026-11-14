@@ -123,5 +123,7 @@ export function createBus(): Bus {
     return channel?.has ? channel.value : undefined;
   };
 
-  return Object.freeze({ protocol: 1, version: VERSION, emit, on, peek }) as Bus;
+  // The untyped implementation can't satisfy Bus's generic signatures; it is checked against the global shape.
+  const instance = { protocol: 1, version: VERSION, emit, on, peek } satisfies NativeFederationBus;
+  return Object.freeze(instance) as Bus;
 }

@@ -39,7 +39,10 @@ value type as `import('@softarc/native-federation-communication').ChannelValue<'
   constants from your contracts module.
 - **Augment the package name, never `'./domain'`.** Mixing the two in one app can silently drop
   declarations.
-- **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it.
+- **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it, or cast it
+  where you can see it: `bus.peek('legacy:cart') as Cart | undefined`.
+- **A union of names takes a union of values.** With `name: 'cart:changed' | 'ui:toast'`,
+  `bus.emit(name, value)` accepts either channel's value. Emit with a literal name.
 - **Commands.** Mark them in the declaration, as above, and emit them through one typed helper:
 
   ```ts
@@ -48,6 +51,61 @@ value type as `import('@softarc/native-federation-communication').ChannelValue<'
   ```
 
 - **Other deploys.** A deployed producer can still send a shape a deployed consumer doesn't expect.
+
+## Typed handles
+
+To name a channel once and get its value type from `Channels`, wrap it in a handle:
+
+```ts
+import {
+  bus,
+  type ChannelName,
+  type ChannelValue,
+  type EmitOptions,
+  type OnOptions,
+} from '@softarc/native-federation-communication';
+
+export const channel = <K extends ChannelName>(name: K) => ({
+  emit: (value: ChannelValue<K>, options?: EmitOptions) => bus.emit(name, value, options),
+  on: (listener: (value: ChannelValue<K>) => void, options?: OnOptions) =>
+    bus.on(name, listener, options),
+  peek: () => bus.peek(name),
+});
+```
+
+```ts
+export const cartChanged = channel('cart:changed');
+cartChanged.emit({ count: 3 });
+cartChanged.on(({ count }) => {});
+```
+
+## Strict channel names
+
+`bus` accepts any name, so a typo becomes a new channel. To make it a compile error, use a view that
+only takes declared names:
+
+```ts
+import {
+  bus,
+  type Channels,
+  type EmitOptions,
+  type OnOptions,
+  type Unsubscribe,
+} from '@softarc/native-federation-communication';
+
+// Accepts declared channels only, so a misspelt name is a compile error.
+export type StrictBus = {
+  emit<K extends keyof Channels>(channel: K, value: Channels[K], options?: EmitOptions): void;
+  on<K extends keyof Channels>(
+    channel: K,
+    listener: (value: Channels[K]) => void,
+    options?: OnOptions
+  ): Unsubscribe;
+  peek<K extends keyof Channels>(channel: K): Channels[K] | undefined;
+};
+
+export const strictBus = bus as StrictBus;
+```
 
 ## Sharing the declarations
 
