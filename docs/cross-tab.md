@@ -41,14 +41,14 @@ and `{ retain: false }` clears the other tab's retained value.
 ## Live only
 
 A new tab gets nothing until the next emit; read the initial state from the server or the URL.
-`connection.replay()` only pushes this tab's retained values to the others, overwriting theirs. Emits
+`connection?.replay()` only pushes this tab's retained values to the others, overwriting theirs. Emits
 from two tabs at the same moment may leave the tabs with different values; there is no
 last-writer-wins.
 
 ## Copies
 
-Every copy's `broadcastTransport()` has the same name, so a second `connect` on the same bus is refused
-with a warning and its channels are not bridged. List every channel in the host's one `connect`. If
+Every copy's `broadcastTransport()` has the same name, so a second `connect` on the same bus returns
+`undefined` and its channels are not bridged. List every channel in the host's one `connect`. If
 the host calls `close()`, nobody takes over; connect again.
 
 All tabs share one wire, `native-federation-communication`. A private `createBus()` connected with
@@ -63,4 +63,4 @@ instance.
 - Same origin and same storage partition only. Same-origin iframes are included.
 - A tab kept in the back-forward cache is evicted when a message reaches it.
 - Without `BroadcastChannel` (React Native, for one), the transport sends and receives nothing.
-- In tests, call `connection.close()`: an open channel keeps Node running.
+- In tests, call `connection?.close()`: an open channel keeps Node running.

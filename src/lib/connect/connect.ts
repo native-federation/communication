@@ -1,9 +1,8 @@
 import type { ChannelName, Envelope, Tap } from '../domain/bus/bus.contract.js';
 import type { Connection, ConnectOptions, Transport } from '../domain/connect/connect.contract.js';
-import { assertChannel, noop } from '../bus/arguments.js';
+import { assertChannel } from '../bus/arguments.js';
 import { getGlobalBus } from '../global/global-bus.js';
 
-const idle: Connection = Object.freeze({ replay: noop, close: noop });
 let warnedNoTap = false;
 
 function assertTransport(transport: unknown): void {
@@ -19,7 +18,7 @@ function assertTransport(transport: unknown): void {
   }
 }
 
-function refuseNoTap(): Connection {
+function refuseNoTap(): undefined {
   if (!warnedNoTap) {
     warnedNoTap = true;
     console.warn(
@@ -27,14 +26,6 @@ function refuseNoTap(): Connection {
         'it, or this is not a single-user realm (a browser page or React Native).'
     );
   }
-  return idle;
-}
-
-function refuseTaken(name: string): Connection {
-  console.warn(
-    `[native-federation-communication] Transport "${name}" is already connected to this bus.`
-  );
-  return idle;
 }
 
 // Inbound data comes from outside this realm, so anything malformed or unlisted is ignored.
@@ -72,7 +63,7 @@ export function connect(
   transport: Transport,
   channels: readonly ChannelName[],
   options?: ConnectOptions
-): Connection {
+): Connection | undefined {
   assertTransport(transport);
   channels.forEach(assertChannel);
   const listed = new Set<string>(channels);
@@ -81,5 +72,5 @@ export function connect(
   const tap = bus.tap(transport.name, envelope => {
     if (listed.has(envelope.channel)) transport.send(envelope);
   });
-  return tap ? link(transport, tap, listed) : refuseTaken(transport.name);
+  return tap && link(transport, tap, listed);
 }

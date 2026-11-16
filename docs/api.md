@@ -94,16 +94,16 @@ native app.
 import { connect } from '@softarc/native-federation-communication';
 
 const connection = connect(transport, ['cart:changed', 'auth:user']);
-connection.replay(); // send this side's retained values, e.g. when the other side (re)loads
-connection.close(); // stop both directions; safe to call twice
+connection?.replay(); // send this side's retained values, e.g. when the other side (re)loads
+connection?.close(); // stop both directions; safe to call twice
 ```
 
 - Every emit on a listed channel is sent, with its `retain`. Every envelope received for a listed
   channel is emitted on this side and not sent back. Other channels and anything that is not an
   envelope are ignored.
 - `{ bus }` connects a bus from `createBus()` instead of the page bus.
-- If the bus has no `tap`, or a transport with the same `name` is already connected to it, `connect`
-  warns and returns a connection that does nothing.
+- `connect` returns `undefined` when refused: when the bus has no `tap` (it then warns once), or when
+  its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.
 - A bad `transport` or channel throws a `TypeError`.
 
@@ -123,15 +123,18 @@ type Transport = {
 
 A received envelope's `retain` follows `emit`'s rules.
 
-`Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows five
+`Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows six
 rules:
 
 - **`send` never delivers back to the sender's own side.** An echo would reach its listeners twice.
 - **Values must survive the encoding.** JSON drops functions and `undefined` fields; structured clone
   turns class instances into plain objects and rejects functions.
-- **`name` is unique per bus.** A second `connect` with the same name is refused with a warning, which
-  keeps two copies of the same transport from bridging twice.
+- **`name` is its tap name; taps and transports share one namespace per bus.** Use `kind:id` names like
+  `broadcast:<wire>`. A second `connect` with a taken name returns `undefined`, which keeps two copies
+  of the same transport from bridging twice.
 - **`listen` may throw; `connect` then closes the tap and rethrows.**
+- **`send` is fire-and-forget: a synchronous throw is reported; an async `send` handles its own
+  rejections.**
 - **Connections form a tree.** A value received over one connection is sent on by the bus's other
   connections, so one bus can join tabs and a WebView. A cycle sends values around forever.
 

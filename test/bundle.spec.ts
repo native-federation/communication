@@ -20,7 +20,11 @@ const CROSS_TAB_PATH = 'fesm2022/@softarc/native-federation-communication-transp
 type Copy = {
   bus: Bus;
   createBus: () => Bus;
-  connect: (transport: Transport, channels: string[], options?: ConnectOptions) => Connection;
+  connect: (
+    transport: Transport,
+    channels: string[],
+    options?: ConnectOptions
+  ) => Connection | undefined;
 };
 
 // A distinct query string makes vite load the same file as a separate module instance, which is
@@ -262,13 +266,14 @@ describe('the published bundles', () => {
       one.bus.on(channel, value => here.push(value));
       otherTab.on(channel, value => there.push(value));
 
+      const first = one.connect(tabsOne.broadcastTransport(), [channel])!;
+      const refused = two.connect(tabsTwo.broadcastTransport(), [channel]);
       connections.push(
-        one.connect(tabsOne.broadcastTransport(), [channel]),
-        two.connect(tabsTwo.broadcastTransport(), [channel]),
-        one.connect(tabsOne.broadcastTransport(), [channel], { bus: otherTab })
+        first,
+        one.connect(tabsOne.broadcastTransport(), [channel], { bus: otherTab })!
       );
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toMatch(/"broadcast:native-federation-communication"/);
+      expect(refused).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
       two.bus.emit(channel, 1);
       two.bus.emit(channel, 2);
       await vi.waitFor(() => expect(there).toEqual([1, 2]));

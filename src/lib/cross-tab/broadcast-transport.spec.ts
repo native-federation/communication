@@ -156,12 +156,13 @@ describe('broadcastTransport', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const bus = createBus();
       const wire = fresh();
-      track(connect(broadcastTransport(wire), ['x'], { bus }).close);
+      track(connect(broadcastTransport(wire), ['x'], { bus })!.close);
 
-      connect(broadcastTransport(wire), ['x'], { bus });
+      const duplicate = connect(broadcastTransport(wire), ['x'], { bus });
 
+      expect(duplicate).toBeUndefined();
       expect(opened).toHaveLength(1);
-      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).not.toHaveBeenCalled();
     });
   });
 
@@ -217,12 +218,12 @@ describe('broadcastTransport', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const wire = fresh();
       const transport = broadcastTransport(wire);
-      track(connect(transport, ['x'], { bus: createBus() }).close);
+      track(connect(transport, ['x'], { bus: createBus() })!.close);
       const second = createBus();
 
       expect(() => connect(transport, ['x'], { bus: second })).toThrow(already(wire));
 
-      track(connect(broadcastTransport(wire), ['x'], { bus: second }).close);
+      track(connect(broadcastTransport(wire), ['x'], { bus: second })!.close);
       expect(warn).not.toHaveBeenCalled();
       expect(opened).toHaveLength(2);
     });
@@ -261,7 +262,7 @@ describe('broadcastTransport', () => {
     it('makes connect a working no-op that keeps local delivery', () => {
       vi.stubGlobal('BroadcastChannel', undefined);
       const bus = createBus();
-      const connection = connect(broadcastTransport(fresh()), ['x'], { bus });
+      const connection = connect(broadcastTransport(fresh()), ['x'], { bus })!;
       const received: unknown[] = [];
       bus.on('x', value => received.push(value));
 
@@ -277,7 +278,7 @@ describe('broadcastTransport', () => {
   describe('through connect', () => {
     function tab(wire: string, channels: string[]): { bus: Bus; connection: Connection } {
       const bus = createBus();
-      const connection = connect(broadcastTransport(wire), channels, { bus });
+      const connection = connect(broadcastTransport(wire), channels, { bus })!;
       track(connection.close);
       return { bus, connection };
     }

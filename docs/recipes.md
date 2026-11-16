@@ -243,7 +243,7 @@ export function Shop() {
 
   useEffect(() => {
     connection.current = connect(transport, ['cart:changed', 'auth:user']);
-    return () => connection.current.close();
+    return () => connection.current?.close();
   }, [transport]);
 
   return (

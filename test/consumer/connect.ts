@@ -13,12 +13,14 @@ import {
 import type * as domain from '@softarc/native-federation-communication/domain';
 import { broadcastTransport } from '@softarc/native-federation-communication/transport/cross-tab';
 
-export const tabs: Connection = connect(broadcastTransport(), ['cart:count']);
+export const tabs: Connection | undefined = connect(broadcastTransport(), ['cart:count']);
 connect(broadcastTransport('my-app'), ['cart:count'], { bus });
 connect(broadcastTransport(), ['cart:count'], { bus: createBus() });
 connect(broadcastTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
-tabs.replay();
-tabs.close();
+tabs?.replay();
+tabs?.close();
+// @ts-expect-error connect returns undefined when refused
+connect(broadcastTransport(), ['cart:count']).close();
 // @ts-expect-error channels is a list, not a single name
 connect(broadcastTransport(), 'cart:count');
 // @ts-expect-error a wire is a string
@@ -53,6 +55,6 @@ tap?.replay();
 
 // The types from both entries are the same types.
 export const options: domain.ConnectOptions = {} satisfies ConnectOptions;
-export const viaDomain: domain.Connection = tabs;
+export const viaDomain: domain.Connection | undefined = tabs;
 export const domainTap: domain.Tap | undefined = tap;
 export const domainObserver: domain.TapObserver = observer;

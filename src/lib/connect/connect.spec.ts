@@ -52,8 +52,8 @@ function pair(channels: string[]): [Side, Side] {
   wire(ta, tb);
   const [a, b] = [createBus(), createBus()];
   return [
-    { bus: a, transport: ta, connection: connect(ta, channels, { bus: a }) },
-    { bus: b, transport: tb, connection: connect(tb, channels, { bus: b }) },
+    { bus: a, transport: ta, connection: connect(ta, channels, { bus: a })! },
+    { bus: b, transport: tb, connection: connect(tb, channels, { bus: b })! },
   ];
 }
 
@@ -163,30 +163,27 @@ describe('connect', () => {
     });
 
     // Node has no window, so the page bus is the inert one, which has no tap.
-    it('stays idle on the inert bus outside a single-user realm', async () => {
+    it('is refused on the inert bus outside a single-user realm', async () => {
       const transport = endpoint();
       const connection = (await freshConnect())(transport, ['a']);
 
+      expect(connection).toBeUndefined();
       expect(transport.listen).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(() => connection.replay()).not.toThrow();
-      expect(() => connection.close()).not.toThrow();
     });
   });
 
   describe('a bus without tap', () => {
-    it('warns once per module and returns an idle connection without listening', async () => {
+    it('warns once per module and returns undefined without listening', async () => {
       const fresh = await freshConnect();
       const bus = withoutTap();
       const first = endpoint('first');
       const second = endpoint('second');
 
-      const connection = fresh(first, ['a'], { bus });
-      fresh(second, ['a'], { bus });
-      connection.replay();
-      connection.close();
+      const connections = [fresh(first, ['a'], { bus }), fresh(second, ['a'], { bus })];
       first.inject({ channel: 'a', value: 1, retain: true });
 
+      expect(connections).toEqual([undefined, undefined]);
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0]?.[0]).toMatch(/^\[native-federation-communication\] /);
       expect(first.listen).not.toHaveBeenCalled();
@@ -206,7 +203,8 @@ describe('connect', () => {
   });
 
   describe('a transport name already connected to the bus', () => {
-    it('is refused with a warning naming it, without listening', () => {
+    // Like tap, a taken name is refused silently: the undefined result tells the caller.
+    it('is refused with undefined and no warning, without listening', () => {
       const bus = createBus();
       const original = endpoint('broadcast:x');
       const duplicate = endpoint('broadcast:x');
@@ -214,29 +212,21 @@ describe('connect', () => {
 
       const connection = connect(duplicate, ['a'], { bus });
       bus.emit('a', 1);
-      connection.replay();
-      connection.close();
 
-      expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toMatch(
-        /^\[native-federation-communication\] .*"broadcast:x"/
-      );
-      expect(warn.mock.calls[0]?.[0]).toMatch(/already connected/);
+      expect(connection).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
       expect(duplicate.listen).not.toHaveBeenCalled();
       expect(duplicate.sent).toEqual([]);
-      expect(duplicate.unlistens).toBe(0);
-      // The refused connection's close did not close the original.
       expect(original.sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
     });
 
-    it('warns on every refused connect', () => {
+    // A tap and a transport share one namespace per bus.
+    it('is refused when a tap holds the name', () => {
       const bus = createBus();
-      connect(endpoint(), ['a'], { bus });
+      bus.tap!('logger', () => {});
 
-      connect(endpoint(), ['a'], { bus });
-      connect(endpoint(), ['a'], { bus });
-
-      expect(warn).toHaveBeenCalledTimes(2);
+      expect(connect(endpoint('logger'), ['a'], { bus })).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
     });
 
     it('is accepted on another bus', () => {
@@ -273,7 +263,7 @@ describe('connect', () => {
 
     it('is accepted again once the first connection is closed', () => {
       const bus = createBus();
-      connect(endpoint(), ['a'], { bus }).close();
+      connect(endpoint(), ['a'], { bus })!.close();
       const transport = endpoint();
 
       connect(transport, ['a'], { bus });
@@ -547,7 +537,7 @@ describe('connect', () => {
       bus.emit('b', undefined);
       bus.emit('command', 3, { retain: false });
       const transport = endpoint();
-      const connection = connect(transport, ['a', 'b', 'command'], { bus });
+      const connection = connect(transport, ['a', 'b', 'command'], { bus })!;
 
       connection.replay();
 
@@ -562,7 +552,7 @@ describe('connect', () => {
       wire(ta, tb);
       const [a, b] = [createBus(), createBus()];
       a.emit('cart', 3);
-      const atA = connect(ta, ['cart'], { bus: a });
+      const atA = connect(ta, ['cart'], { bus: a })!;
       connect(tb, ['cart'], { bus: b });
       expect(b.peek('cart')).toBeUndefined();
 
@@ -578,7 +568,7 @@ describe('connect', () => {
       bus.emit('a', 1);
       const one = endpoint('one');
       const two = endpoint('two');
-      const connection = connect(one, ['a'], { bus });
+      const connection = connect(one, ['a'], { bus })!;
       connect(two, ['a'], { bus });
 
       connection.replay();
@@ -592,7 +582,7 @@ describe('connect', () => {
     it('stops both directions and unlistens once, however often it is called', () => {
       const bus = createBus();
       const transport = endpoint();
-      const connection = connect(transport, ['a'], { bus });
+      const connection = connect(transport, ['a'], { bus })!;
 
       connection.close();
       connection.close();
@@ -615,7 +605,7 @@ describe('connect', () => {
         send: () => {},
         listen: fn => ((receive = fn), () => {}),
       };
-      const connection = connect(transport, ['a'], { bus });
+      const connection = connect(transport, ['a'], { bus })!;
       const received = live(bus, 'a');
 
       connection.close();
@@ -629,7 +619,7 @@ describe('connect', () => {
       const bus = createBus();
       const closed = endpoint('closed');
       const open = endpoint('open');
-      connect(closed, ['a'], { bus }).close();
+      connect(closed, ['a'], { bus })!.close();
       connect(open, ['a'], { bus });
       const received = live(bus, 'a');
 
