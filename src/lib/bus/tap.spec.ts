@@ -489,6 +489,28 @@ describe('bus.tap', () => {
       expect(bus.tap!('t', () => {})).toBeUndefined();
     });
 
+    // The handle must not find its tap by observer: reopening with the same function is a new tap.
+    it('leaves a later tap with the same observer alone', () => {
+      const seen: unknown[] = [];
+      const observer: TapObserver = ({ channel, value }) => seen.push([channel, value]);
+      const listener = vi.fn();
+      bus.emit('retained', 0);
+      bus.on('a', listener);
+      const old = openTap(bus, 't', observer);
+      old.close();
+      openTap(bus, 't', observer);
+
+      old.close();
+      old.emit('a', 'stale');
+      old.replay();
+      bus.emit('b', 1);
+
+      expect(seen).toEqual([['b', 1]]);
+      expect(listener).not.toHaveBeenCalled();
+      expect(bus.peek('a')).toBeUndefined();
+      expect(bus.tap!('t', () => {})).toBeUndefined();
+    });
+
     it('turns emit and replay into no-ops', () => {
       bus.emit('a', 'retained');
       const listener = vi.fn();

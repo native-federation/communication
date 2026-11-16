@@ -7,4 +7,4 @@ export type Transport = {
   listen(receive: (envelope: Envelope) => void): Unsubscribe;
 };
 export type Connection = { replay(): void; close(): void };
-export type ConnectOptions = { bus?: Bus | NativeFederationBus };
+export type ConnectOptions = { bus?: Bus | NativeFederationBus | undefined };
