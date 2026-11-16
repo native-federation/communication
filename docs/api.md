@@ -2,15 +2,53 @@
 
 # API
 
+## Entry points
+
+Every subpath is under `@softarc/native-federation-communication`:
+
+| Import                 | Exports                                 | For                                                      |
+| ---------------------- | --------------------------------------- | -------------------------------------------------------- |
+| the package            | `bus`, `connect`, every type            | Everyone                                                 |
+| `/quickstart`          | nothing: it installs a bus              | The host, once                                           |
+| `/internal`            | `createBus`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
+| `/domain`              | every type, and the `__NF_BUS__` global | Types without runtime code                               |
+| `/transport/cross-tab` | `broadcastTransport`                    | [Cross-tab](./cross-tab.md)                              |
+| `/quickstart.js`       | a classic script that installs a bus    | The [script tag](./getting-started.md#with-a-script-tag) |
+
 ```js
-import { bus, createBus } from '@softarc/native-federation-communication';
+import { bus, connect } from '@softarc/native-federation-communication';
+import {
+  createBus,
+  getNFBus,
+  installNFBus,
+} from '@softarc/native-federation-communication/internal';
 ```
 
-- `bus` is the page's bus, the same one every copy of the package and `globalThis.__NF_BUS__` use.
+- `bus` serves whatever is installed at `globalThis.__NF_BUS__`, looked up on every call, so every
+  copy of the package uses the same bus. With nothing installed it is
+  [inert](#without-an-installed-bus).
 - `createBus()` returns a new bus that is installed nowhere: for code that takes the bus as a
-  parameter, or to [install one outside a browser](./multiple-copies.md#outside-a-browser).
+  parameter, for tests, or to install yourself.
+- `getNFBus(loc = globalThis)` returns the value at `loc.__NF_BUS__` as is, or `undefined`.
+- `installNFBus(bus, loc = globalThis)` installs `bus` at `loc.__NF_BUS__` if nothing is there, and
+  returns whichever bus is there afterwards. It never replaces a bus that others use. The slot is
+  read-only, so a stray assignment throws in strict mode instead of splitting the page.
 
-Both have this shape, written as a TypeScript type. The methods never use `this`.
+`/quickstart` is `installNFBus(createBus())`. `loc` is any object: install a bus there and pass it to
+[`connect`](#connecttransport-channels-options) as `{ bus: getNFBus(loc) }`. `bus` itself always reads
+`globalThis`.
+
+```js
+const loc = {};
+installNFBus(createBus(), loc);
+getNFBus(loc).emit('cart:changed', { count: 3 });
+connect(transport, ['cart:changed'], { bus: getNFBus(loc) });
+```
+
+## The bus
+
+`bus` and every bus from `createBus()` have this shape, written as a TypeScript type. The methods
+never use `this`.
 
 ```ts
 type Bus = {
@@ -101,9 +139,10 @@ connection?.close(); // stop both directions; safe to call twice
 - Every emit on a listed channel is sent, with its `retain`. Every envelope received for a listed
   channel is emitted on this side and not sent back. Other channels and anything that is not an
   envelope are ignored.
-- `{ bus }` connects a bus from `createBus()` instead of the page bus.
-- `connect` returns `undefined` when refused: when the bus has no `tap` (it then warns), or when
-  its `name` is taken on that bus.
+- `{ bus }` connects another bus, such as one from `createBus()` or `getNFBus(loc)`, instead of the
+  page bus.
+- `connect` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
+  or an older copy installed it (it then warns), or when its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.
 - A channel that is not a string, or a transport without a string `name` or a `listen` function,
   throws a `TypeError`. A `send` that is not a function is reported on each emit.
@@ -139,6 +178,20 @@ rules:
 - **Connections form a tree.** A value received over one connection is sent on by the bus's other
   connections, so one bus can join tabs and a WebView. A cycle sends values around forever.
 
+## Without an installed bus
+
+Until a bus is installed, `bus` is inert: it checks its arguments and throws the same `TypeError`s,
+then drops the call. `emit` delivers nothing, `on` returns an `off` that does nothing, `peek` returns
+`undefined`, and `tap` is `undefined`. The first dropped call warns, once per copy of the package:
+
+```text
+[native-federation-communication] No bus is installed, so this bus drops every value. Import
+'@softarc/native-federation-communication/quickstart' or install one via
+'@softarc/native-federation-communication/internal'.
+```
+
+`bus` serves an installed bus from the next call on; listeners added to the inert bus stay lost.
+
 ## Delivery rules
 
 - **Order.** Every listener sees values in emit order, across channels. A value emitted inside a
@@ -162,9 +215,10 @@ To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the b
 - **Emit a new object for every change.** A mutated object changes for every listener, and Angular
   signals and React miss the change, because they compare references.
 - **Don't declare or assign `__NF_BUS__` on a page.** A `var __NF_BUS__` in a classic script makes it a
-  plain variable that the next assignment replaces, which splits the page. Tests replace the bus as in
+  plain variable that the next assignment replaces, which splits the page. Install with
+  `installNFBus`. Tests replace the bus as in
   [Testing](./recipes.md#testing).
-- **Don't delete `__NF_BUS__` on a live page.** The next call installs a new bus, and the old one's
-  listeners never hear from it again.
+- **Don't delete `__NF_BUS__` on a live page.** Every copy turns inert, and the listeners on the old
+  bus never hear from a new one.
 - **Don't generate channel names.** Each name keeps its value for the life of the page. Put ids in the
   value.

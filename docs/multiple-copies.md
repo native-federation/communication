@@ -8,26 +8,25 @@ don't become a native federation version conflict that this package doesn't need
 
 ## How a copy finds the bus
 
-The bus lives in `globalThis.__NF_BUS__`. On its first use (never at import), a copy takes the first
-case that applies:
+The bus lives in `globalThis.__NF_BUS__`. Every copy's `bus` reads that slot on every call and uses
+whatever is there, in any runtime, whichever copy installed it. There is no private fallback bus:
 
-1. **A bus is installed** (`protocol >= 1`, and `emit`, `on` and `peek` are functions): use it, in any
-   runtime, whichever copy installed it.
-2. **Something else is there**: leave it, warn once and use a private bus, which the rest of the page
-   never hears. Fix the page.
-3. **A single-user realm**, a browser page or React Native (`window` is the global object): install a
-   new bus there.
-4. **Anywhere else**: use an inert bus that drops every call and warns once. See
-   [Outside a browser](#outside-a-browser).
+- **Nothing is installed**: `bus` is [inert](./api.md#without-an-installed-bus). It drops every call
+  and warns once per copy, until a bus is installed.
+- **The first install wins.** `/quickstart`, `quickstart.js` and `installNFBus` only fill an empty
+  slot; a second install, from any copy or version, keeps the bus that is there. A host that wants a
+  known version installs first.
+- **A value that is not a bus is used as is** and fails on use, typically with a `TypeError`. Nothing
+  checks it. Fix the page.
 
-`init-bus.js` runs these steps at once; loading it twice is harmless. The first copy to install serves
-the page, so a host that wants a known version loads `init-bus.js` first.
+Only the host installs. Importing the main entry never adds a global.
 
 ## The protocol
 
 The frozen object in `__NF_BUS__` is the contract between old and new copies:
 
-- Copies check `protocol` (1), never `version`. The package major is a separate number.
+- Copies use the bus at the slot without checking it. Code that needs a newer feature checks
+  `protocol` (1), never `version`. The package major is a separate number.
 - Methods may be added. A copy checks that one exists before calling it, and the types mark it optional.
 - An option or behaviour an older bus would silently ignore needs a new protocol number, and callers
   check `protocol >= N` first.
@@ -51,10 +50,8 @@ Node, Deno, Bun, workers and iframes:
 - **An iframe** has its own global object, so its own bus. Bridge it with a
   [transport](./api.md#transports) if needed; [`broadcastTransport`](./cross-tab.md) also reaches
   same-origin iframes.
-- **One user per process** (a CLI, a worker, Electron's main process): run
-  `globalThis.__NF_BUS__ ??= createBus();` at startup. Never on a server that serves many users.
-- **Server-side rendering**: install the request-scoped bus from
-  [the SSR recipe](./recipes.md#server-side-rendering) at boot.
-- **A server that sets `global.window = global`** (some DOM shims), and Deno 1.x, look like a browser
-  page, so the first copy would install one bus for all requests. The SSR recipe's bus, installed at
-  boot, prevents that.
+- **One user per process** (a CLI, a worker, Electron's main process): import `/quickstart` at
+  startup. Never on a server that serves many users.
+- **Server-side rendering**: never import `/quickstart` in server code. Install the request-scoped bus
+  from [the SSR recipe](./recipes.md#server-side-rendering) at boot; without it, the bus stays inert
+  on the server.

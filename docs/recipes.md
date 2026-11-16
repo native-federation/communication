@@ -133,8 +133,10 @@ customElements.define('cart-badge', CartBadge);
 
 ## Server-side rendering
 
-A process-wide bus would show one user's values to the next. Install, once at boot, a bus that forwards
-each call to the current request's own bus:
+A process-wide bus would show one user's values to the next, so never import `/quickstart` in server
+code: only in the browser or React Native entry. Without an installed bus, server code gets the inert
+bus, which drops every call and warns once. For a bus per request, install, once at boot, a bus that
+forwards each call to the current request's own bus:
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -171,13 +173,17 @@ server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 ```
 
 Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share the request's
-bus, across `await` too. A call outside a request is checked, then dropped with one warning.
+bus, across `await` too. A call outside a request is checked, then dropped with one warning. With a
+browser and a server entry, keep the `/quickstart` import in the browser one, such as `main.ts`, and
+call `installRequestBus()` from the server one.
 
 ## React Native and WebView
 
 React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
 [`connect`](./api.md#connecttransport-channels-options) and one [transport](./api.md#transports) per
-side. Both import the main entry: `./transport/cross-tab` isn't needed, and Metro resolves the package's
+side. Each side installs its bus once, at the top of its entry file (the app's `index.js`, the page's
+`main.ts`), with `import '@softarc/native-federation-communication/quickstart';`, and imports `bus` and
+`connect` from the main entry. `./transport/cross-tab` isn't needed, and Metro resolves the package's
 `exports` by default from React Native 0.79.
 
 The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
@@ -264,8 +270,8 @@ export function Shop() {
 
 ## Testing
 
-App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Replace it in a setup file;
-no DOM environment is needed:
+App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Put a fresh bus from
+`createBus()` there in a setup file; no DOM environment is needed:
 
 ```js
 import { createBus } from '@softarc/native-federation-communication/internal';
@@ -285,4 +291,6 @@ afterEach(() => {
 
 A rethrown error also skips that `emit`'s remaining deliveries, which is fine in a test. Without
 `vi.stubGlobal`, use
-`Object.defineProperty(globalThis, '__NF_BUS__', { value: createBus(), configurable: true })`.
+`Object.defineProperty(globalThis, '__NF_BUS__', { value: createBus(), configurable: true })`: a
+plain assignment throws once `/quickstart` or `installNFBus` has filled the slot. Code that takes the
+bus as a parameter can get a `createBus()` of its own instead.

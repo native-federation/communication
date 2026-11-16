@@ -20,7 +20,9 @@ job. What crosses tabs is `BroadcastChannel`, so the transport uses it and no `C
 
 ## Connect once, in the host
 
-List the channels explicitly. Channels you don't list stay in the tab.
+Connect after the bus is installed, such as after the `/quickstart` import: without an installed bus
+`connect` warns and returns `undefined`. List the channels explicitly. Channels you don't list stay in
+the tab.
 
 Sync source channels, not the ones derived from them. If a listener on `cart:changed` emits
 `cart:count` and both are synced, every tab gets `cart:count` twice: once from its own listener and
@@ -51,8 +53,8 @@ Every copy's `broadcastTransport()` has the same name, so a second `connect` on 
 `undefined` and its channels are not bridged. List every channel in the host's one `connect`. If
 the host calls `close()`, nobody takes over; connect again.
 
-All tabs share one wire, `native-federation-communication`. A private `createBus()` connected with
-`{ bus }` on that wire cross-talks with the page bus, so give it its own:
+All tabs share one wire, `native-federation-communication`. A private bus from `createBus()` (in
+`/internal`) connected with `{ bus }` on that wire cross-talks with the page bus, so give it its own:
 `broadcastTransport('my-tests')`.
 
 One instance per connection: connecting an instance to a second bus throws (where

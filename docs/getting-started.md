@@ -12,31 +12,48 @@ TypeScript is optional; to check channel values, see [Typing](./typing.md).
 npm install @softarc/native-federation-communication
 ```
 
+The host installs the bus once, before any code uses it. Put the import at the top of its entry file,
+such as `main.ts`:
+
+```js
+import '@softarc/native-federation-communication/quickstart';
+```
+
+The host and every remote then use the bus:
+
 ```js
 import { bus } from '@softarc/native-federation-communication';
 ```
 
-Every remote may bundle its own copy; they all share one bus (see [Multiple copies](./multiple-copies.md)).
+Every remote may bundle its own copy; they all share the one bus at `globalThis.__NF_BUS__` (see
+[Multiple copies](./multiple-copies.md)). Importing `/quickstart` again, from any copy, keeps the bus
+that is there. A remote that also runs on its own can import it in its standalone entry.
 
 ### With a script tag
 
-Load `init-bus.js` as a classic script, before any script that uses the bus:
+Load `quickstart.js` as a classic script, before any script that uses the bus:
 
 ```html
 <script
-  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.1/init-bus.js"
+  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.1/quickstart.js"
   integrity="sha384-HASH"
   crossorigin="anonymous"
 ></script>
 ```
 
-- Replace `HASH` with the output of `openssl dgst -sha384 -binary init-bus.js | openssl base64 -A`.
+- Replace `HASH` with the output of `openssl dgst -sha384 -binary quickstart.js | openssl base64 -A`.
   Serving the file from your own host is better still.
 - Keep the exact version: a range such as `@4` never matches a prerelease.
 - The bus is then `globalThis.__NF_BUS__`, with the same methods as `bus`. Code that must survive a
   failed load calls `globalThis.__NF_BUS__?.on(…)`.
 
 A remote without a build step can still import `bus` by name when native federation shares the package.
+
+### Without an installed bus
+
+`bus` works before a bus is installed, but drops every call and warns, once per copy, that no bus is
+installed. It uses the installed bus from the next call on, so values emitted before that are lost.
+Install it first.
 
 ## State
 

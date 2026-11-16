@@ -13,6 +13,14 @@ optional.
 npm install @softarc/native-federation-communication
 ```
 
+The host installs the bus once, before anything uses it, for example at the top of its `main.ts`:
+
+```js
+import '@softarc/native-federation-communication/quickstart';
+```
+
+Everyone, the host and every remote, then imports `bus`:
+
 ```js
 import { bus } from '@softarc/native-federation-communication';
 
@@ -26,7 +34,7 @@ const off = bus.on('cart:changed', ({ count }) => (badge.textContent = String(co
 bus.emit('ui:toast', { text: 'Added to cart' }, { retain: false });
 ```
 
-No build step? Use the [script tag](https://github.com/native-federation/communication/blob/main/docs/getting-started.md#with-a-script-tag).
+No build step? Load `quickstart.js` with a [script tag](https://github.com/native-federation/communication/blob/main/docs/getting-started.md#with-a-script-tag).
 
 Keep communication rare: navigation state belongs in the URL, parent-to-child data in attributes.
 
@@ -35,7 +43,7 @@ Keep communication rare: navigation state belongs in the URL, parent-to-child da
 | Guide                                                                                                                       | What it covers                                    |
 | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
 | [Getting started](https://github.com/native-federation/communication/blob/main/docs/getting-started.md)                     | Install, the script tag, state and commands       |
-| [API](https://github.com/native-federation/communication/blob/main/docs/api.md)                                             | `emit`, `on`, `peek`, delivery rules and pitfalls |
+| [API](https://github.com/native-federation/communication/blob/main/docs/api.md)                                             | Entry points, `emit`, `on`, `peek`, pitfalls      |
 | [Typing](https://github.com/native-federation/communication/blob/main/docs/typing.md)                                       | Checked channels in TypeScript and JavaScript     |
 | [Recipes](https://github.com/native-federation/communication/blob/main/docs/recipes.md)                                     | Angular, React, RxJS, custom elements, SSR, tests |
 | [Multiple copies](https://github.com/native-federation/communication/blob/main/docs/multiple-copies.md)                     | One bus for all copies, the protocol, Node        |
