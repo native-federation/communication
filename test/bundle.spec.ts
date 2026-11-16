@@ -85,7 +85,8 @@ describe('the published bundles', () => {
   it.each([
     ['the first copy', 0],
     ['the second copy', 1],
-  ])('shares one bus between two copies when %s touches the page first', async (_, first) => {
+  ])('shares the installed bus between two copies when %s emits first', async (_, first) => {
+    runInitScript();
     const pair = [await loadCopy(), await loadCopy()];
     const [producer, consumer] = [pair[first]!.bus, pair[1 - first]!.bus];
 
@@ -100,6 +101,7 @@ describe('the published bundles', () => {
   });
 
   it('delivers the producer’s exact reference across copies, functions included', async () => {
+    runInitScript();
     const a = await loadCopy();
     const b = await loadCopy();
     const loaders = { loadRemoteModule: () => 'module' };
@@ -112,6 +114,7 @@ describe('the published bundles', () => {
   });
 
   it('keeps a command emitted with retain: false out of a later copy’s replay', async () => {
+    runInitScript();
     const a = await loadCopy();
     const b = await loadCopy();
     const live: unknown[] = [];
@@ -158,10 +161,9 @@ describe('the published bundles', () => {
       expect(globalThis.__NF_BUS__).toBe(installed);
     });
 
-    it('reuses the bus an ESM copy installed before it', async () => {
-      const { bus } = await loadCopy();
-      bus.emit('a', 1);
-      const installed = globalThis.__NF_BUS__;
+    it('keeps a bus installed before it', async () => {
+      const installed = (await loadCopy()).createBus();
+      globalThis.__NF_BUS__ = installed;
 
       expect(runInitScript).not.toThrow();
       expect(globalThis.__NF_BUS__).toBe(installed);
@@ -191,8 +193,7 @@ describe('the published bundles', () => {
       expect(installed.peek('a')).toBe(1);
     });
 
-    // Each copy warns once for itself; the unit specs pin the once.
-    it('warns from each copy and leaves a foreign object at the key alone', () => {
+    it('leaves a foreign value at the key alone, without a warning', () => {
       const { page, errors, warnings } = loadPage([
         'window.__NF_BUS__ = { protocol: 1 };',
         SCRIPT,
@@ -200,18 +201,17 @@ describe('the published bundles', () => {
       ]);
 
       expect(errors).toEqual([]);
-      expect(warnings).toEqual([
-        expect.stringMatching(/not a bus/),
-        expect.stringMatching(/not a bus/),
-      ]);
+      expect(warnings).toEqual([]);
       expect(page.__NF_BUS__).toEqual({ protocol: 1 });
     });
 
-    it('does nothing and does not throw without window', () => {
+    // There is no page detection: wherever the script runs, it installs.
+    it('installs without window too', () => {
       const context = vm.createContext({});
 
-      expect(() => vm.runInContext(SCRIPT, context)).not.toThrow();
-      expect(vm.runInContext('typeof __NF_BUS__', context)).toBe('undefined');
+      vm.runInContext(SCRIPT, context);
+
+      expect(vm.runInContext('__NF_BUS__.protocol', context)).toBe(1);
     });
   });
 
@@ -257,6 +257,7 @@ describe('the published bundles', () => {
     // private bus stands in for the other tab.
     it('forwards each value once when two copies connect it on the page', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      runInitScript();
       const channel = 'test:cross-tab';
       const [one, two] = [await loadCopy(), await loadCopy()];
       const [tabsOne, tabsTwo] = [await loadCrossTab(), await loadCrossTab()];

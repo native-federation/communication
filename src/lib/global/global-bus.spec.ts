@@ -1,5 +1,5 @@
-// @vitest-environment jsdom
 import { version } from '../../../package.json';
+import { createBus } from '../bus/create-bus.js';
 import type { Bus } from '../domain/bus/bus.contract.js';
 
 // A protocol-1 bus as a copy built before tap existed installs it.
@@ -11,204 +11,349 @@ const createBusLike = () => ({
   peek: vi.fn(),
 });
 
-// Each test gets a fresh copy of the module (and so a fresh private fallback) and an empty slot.
+// Each test gets a fresh copy of the module (and so a fresh warn-once state) and an empty slot.
 async function loadCopy() {
   vi.resetModules();
   return import('./global-bus.js');
 }
 
-describe('the page bus', () => {
+describe('the global bus', () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     delete globalThis.__NF_BUS__;
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterAll(() => {
     delete globalThis.__NF_BUS__;
   });
 
-  it('installs nothing at import', async () => {
+  it('adds no globals and warns nothing when the module is imported', async () => {
+    const keys = Reflect.ownKeys(globalThis);
+
     await loadCopy();
 
-    expect(globalThis.__NF_BUS__).toBeUndefined();
+    expect(Reflect.ownKeys(globalThis)).toEqual(keys);
+    expect(warn).not.toHaveBeenCalled();
   });
 
-  it('installs a frozen, non-writable, non-enumerable, configurable slot on first use', async () => {
-    const { bus } = await loadCopy();
-
-    bus.emit('a', 1);
-
-    const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__NF_BUS__');
-    expect(descriptor).toMatchObject({ writable: false, enumerable: false, configurable: true });
-    expect(Object.isFrozen(descriptor?.value)).toBe(true);
-    expect(globalThis.__NF_BUS__?.protocol).toBe(1);
-    expect(globalThis.__NF_BUS__?.peek('a')).toBe(1);
-  });
-
-  it('refuses a blind reassignment and keeps the original bus', async () => {
-    const { bus } = await loadCopy();
-    bus.emit('a', 1);
-    const installed = globalThis.__NF_BUS__;
-
-    expect(() => {
-      (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = {};
-    }).toThrow(TypeError);
-    expect(globalThis.__NF_BUS__).toBe(installed);
-  });
-
-  it('shares one bus between two copies of the module', async () => {
-    const a = await loadCopy();
-    const b = await loadCopy();
-    expect(a.bus).not.toBe(b.bus);
-
-    a.bus.emit('a', 'from a');
-    const received: unknown[] = [];
-    b.bus.on('a', value => received.push(value));
-    b.bus.emit('a', 'from b');
-
-    expect(received).toEqual(['from a', 'from b']);
-    expect(a.bus.peek('a')).toBe('from b');
-  });
-
-  it('uses a newer copy at the key as-is, ignoring members it does not know', async () => {
-    const newer: Bus & { extra: () => void } = {
-      protocol: 2,
-      version: '9.0.0',
-      emit: vi.fn(),
-      on: vi.fn(() => () => {}),
-      peek: vi.fn(() => 'from newer' as never),
-      extra: vi.fn(),
-    };
-    globalThis.__NF_BUS__ = newer;
-    const { bus } = await loadCopy();
-
-    bus.emit('a', 1, { retain: false });
-
-    expect(newer.emit).toHaveBeenCalledWith('a', 1, { retain: false });
-    expect(bus.peek('a')).toBe('from newer');
-    expect(bus.protocol).toBe(2);
-    expect(bus.version).toBe('9.0.0');
-    expect(globalThis.__NF_BUS__).toBe(newer);
-  });
-
-  it.each([
-    ['an object without protocol', { emit: () => {}, on: () => {}, peek: () => {} }],
-    ['a protocol below 1', { protocol: 0, emit: () => {}, on: () => {}, peek: () => {} }],
-    ['a non-numeric protocol', { protocol: '1', emit: () => {}, on: () => {}, peek: () => {} }],
-    ['a protocol without methods', { protocol: 1 }],
-    ['a protocol without peek', { protocol: 1, emit: () => {}, on: () => {} }],
-    ['methods that are not functions', { protocol: 1, emit: 1, on: 1, peek: 1 }],
-    ['null', null],
-    ['a number', 1],
-  ])('warns once and uses a private bus when the key holds %s', async (_, foreign) => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = foreign;
-    const { bus } = await loadCopy();
-
-    bus.emit('a', 1);
-    const received: unknown[] = [];
-    bus.on('a', value => received.push(value));
-
-    expect(received).toEqual([1]);
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect((globalThis as { __NF_BUS__?: unknown }).__NF_BUS__).toBe(foreign);
-  });
-
-  it('passes the options of emit and on through to the bus serving the page', async () => {
-    const { bus } = await loadCopy();
-    const controller = new AbortController();
-    bus.emit('a', 'stale');
-    bus.emit('b', 1, { retain: false });
-
-    const received: unknown[] = [];
-    bus.on('a', value => received.push(value), { replay: false, signal: controller.signal });
-    bus.emit('a', 'live');
-    controller.abort();
-    bus.emit('a', 'after abort');
-
-    expect(received).toEqual(['live']);
-    expect(bus.peek('b')).toBeUndefined();
-  });
-
-  it('works with destructured methods', async () => {
-    const { bus } = await loadCopy();
-    const { emit, on, peek } = bus;
-    const received: unknown[] = [];
-
-    on('a', value => received.push(value));
-    emit('a', 1);
-
-    expect(received).toEqual([1]);
-    expect(peek('a')).toBe(1);
-  });
-
-  it('works with destructured methods of the installed global', async () => {
-    const { getGlobalBus } = await loadCopy();
-    getGlobalBus();
-    const { emit, on } = globalThis.__NF_BUS__!;
-    const received: unknown[] = [];
-
-    on('a', value => received.push(value));
-    emit('a', 1);
-
-    expect(received).toEqual([1]);
-  });
-
-  describe('tap', () => {
-    it('opens a tap on the bus serving the page', async () => {
+  describe('with nothing installed', () => {
+    it('is inert and installs nothing on use', async () => {
       const { bus } = await loadCopy();
-      const seen: unknown[] = [];
+      const listener = vi.fn();
 
-      expect(bus.tap).toBeTypeOf('function');
-      const tap = bus.tap!('t', ({ channel, value }) => seen.push([channel, value]));
-      globalThis.__NF_BUS__!.emit('a', 1);
-      tap?.emit('b', 2);
-      const received: unknown[] = [];
-      globalThis.__NF_BUS__!.on('b', value => received.push(value));
+      bus.emit('a', 1);
+      const off = bus.on('a', listener);
+      bus.emit('a', 2);
+      off();
 
-      expect(seen).toEqual([['a', 1]]);
-      expect(received).toEqual([2]);
-      expect(globalThis.__NF_BUS__!.tap?.('t', () => {})).toBeUndefined();
+      expect(listener).not.toHaveBeenCalled();
+      expect(bus.peek('a')).toBeUndefined();
+      expect(bus.protocol).toBe(1);
+      expect(bus.version).toBe(version);
+      expect(globalThis.__NF_BUS__).toBeUndefined();
     });
 
-    it('passes name and observer through to a bus installed by another copy', async () => {
-      const tap = { emit: vi.fn(), replay: vi.fn(), close: vi.fn() };
-      const installed = { ...createBusLike(), tap: vi.fn(() => tap) };
-      globalThis.__NF_BUS__ = installed;
+    it('warns once per copy that no bus is installed and how to install one', async () => {
       const { bus } = await loadCopy();
-      const observer = vi.fn();
 
-      expect(bus.tap?.('t', observer)).toBe(tap);
-      expect(installed.tap).toHaveBeenCalledWith('t', observer);
+      bus.emit('a', 1);
+      bus.on('a', () => {});
+      bus.peek('a');
+
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /No bus is installed.*\/quickstart'.*native-federation-communication\/internal'/s
+      );
+
+      (await loadCopy()).bus.peek('a');
+      expect(warn).toHaveBeenCalledTimes(2);
     });
 
-    // An older copy installed the page bus before tap existed.
-    it('returns undefined when the bus serving the page has no tap', async () => {
-      globalThis.__NF_BUS__ = Object.freeze(createBusLike());
+    it.each([
+      ['emit', (bus: Bus) => bus.emit('a', 1)],
+      ['on', (bus: Bus) => bus.on('a', () => {})],
+      ['peek', (bus: Bus) => bus.peek('a')],
+    ])('warns from %s alone, but not when protocol or version is read', async (_, call) => {
+      const { bus } = await loadCopy();
+
+      expect([bus.protocol, bus.version]).toEqual([1, version]);
+      expect(warn).not.toHaveBeenCalled();
+
+      call(bus);
+      expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('has no tap, and the facade returns undefined without a warning', async () => {
       const { bus } = await loadCopy();
 
       expect(bus.tap?.('t', () => {})).toBeUndefined();
-      // Lets callers feature-detect with `bus.tap?.()` as the docs advise.
       expect(bus.tap).toBeUndefined();
+      expect(warn).not.toHaveBeenCalled();
     });
 
-    // The facade reads tap from the slot on every access, not once at import.
-    it('follows the bus currently serving the page', async () => {
-      globalThis.__NF_BUS__ = Object.freeze(createBusLike());
+    it('throws the same TypeErrors as a real bus', async () => {
       const { bus } = await loadCopy();
-      expect(bus.tap).toBeUndefined();
 
-      const tap = vi.fn();
-      globalThis.__NF_BUS__ = { ...createBusLike(), tap };
+      expect(() => bus.emit(undefined as unknown as string, 1)).toThrow(TypeError);
+      expect(() => bus.on(42 as unknown as string, () => {})).toThrow(TypeError);
+      expect(() => bus.on('a', undefined as unknown as () => void)).toThrow(TypeError);
+      expect(() => bus.peek(null as unknown as string)).toThrow(TypeError);
+      expect(warn).not.toHaveBeenCalled();
+    });
 
-      expect(bus.tap).toBe(tap);
+    // No lazy install: the facade starts serving a bus as soon as one is installed.
+    it('follows a bus installed later', async () => {
+      const { bus } = await loadCopy();
+      bus.emit('a', 1);
+
+      const installed = createBus();
+      globalThis.__NF_BUS__ = installed;
+      bus.emit('a', 2);
+
+      expect(installed.peek('a')).toBe(2);
     });
   });
 
-  it('reports the protocol and version of the bus serving the page', async () => {
-    const { bus } = await loadCopy();
+  describe('getNFBus', () => {
+    it('returns the value at the slot as is, or undefined', async () => {
+      const { getNFBus } = await loadCopy();
+      const installed = createBus();
 
-    expect(bus.protocol).toBe(1);
-    expect(bus.version).toBe(version);
-    expect(Object.isFrozen(bus)).toBe(true);
+      expect(getNFBus()).toBeUndefined();
+      globalThis.__NF_BUS__ = installed;
+      expect(getNFBus()).toBe(installed);
+    });
+
+    it('reads a custom location', async () => {
+      const { getNFBus } = await loadCopy();
+      const installed = createBus();
+
+      expect(getNFBus({})).toBeUndefined();
+      expect(getNFBus({ __NF_BUS__: installed })).toBe(installed);
+    });
+  });
+
+  describe('installNFBus', () => {
+    it('installs a non-writable, non-enumerable, configurable slot and returns the bus', async () => {
+      const { installNFBus } = await loadCopy();
+      const created = createBus();
+
+      expect(installNFBus(created)).toBe(created);
+
+      const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__NF_BUS__');
+      expect(descriptor).toMatchObject({ writable: false, enumerable: false, configurable: true });
+      expect(descriptor?.value).toBe(created);
+    });
+
+    it('refuses a blind reassignment and keeps the original bus', async () => {
+      const { installNFBus } = await loadCopy();
+      const installed = installNFBus(createBus());
+
+      expect(() => {
+        (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = {};
+      }).toThrow(TypeError);
+      expect(globalThis.__NF_BUS__).toBe(installed);
+    });
+
+    it('keeps and returns the bus already installed, by any copy', async () => {
+      const first = createBus();
+      (await loadCopy()).installNFBus(first);
+
+      expect((await loadCopy()).installNFBus(createBus())).toBe(first);
+      expect(globalThis.__NF_BUS__).toBe(first);
+    });
+
+    it('keeps whatever value is at the slot, even one that is not a bus', async () => {
+      const foreign = { protocol: 1 };
+      (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = foreign;
+      const { installNFBus } = await loadCopy();
+
+      expect(installNFBus(createBus())).toBe(foreign);
+    });
+
+    it('installs into a custom location only', async () => {
+      const { getNFBus, installNFBus } = await loadCopy();
+      const loc = {};
+      const created = createBus();
+
+      expect(installNFBus(created, loc)).toBe(created);
+      expect(getNFBus(loc)).toBe(created);
+      expect(Object.getOwnPropertyDescriptor(loc, '__NF_BUS__')).toMatchObject({
+        writable: false,
+        enumerable: false,
+        configurable: true,
+      });
+      expect(installNFBus(createBus(), loc)).toBe(created);
+      expect(globalThis.__NF_BUS__).toBeUndefined();
+    });
+
+    // defineProperty returns false there, and the fallback assignment throws in strict mode.
+    it('throws when the location cannot take the slot', async () => {
+      const { installNFBus } = await loadCopy();
+
+      expect(() => installNFBus(createBus(), Object.freeze({}))).toThrow(TypeError);
+    });
+
+    it('works with destructured methods of the installed bus', async () => {
+      const { installNFBus } = await loadCopy();
+      installNFBus(createBus());
+      const { emit, on } = globalThis.__NF_BUS__!;
+      const received: unknown[] = [];
+
+      on('a', value => received.push(value));
+      emit('a', 1);
+
+      expect(received).toEqual([1]);
+    });
+  });
+
+  describe('the facade', () => {
+    it('shares one installed bus between two copies of the module', async () => {
+      const a = await loadCopy();
+      const b = await loadCopy();
+      a.installNFBus(createBus());
+      expect(a.bus).not.toBe(b.bus);
+
+      a.bus.emit('a', 'from a');
+      const received: unknown[] = [];
+      b.bus.on('a', value => received.push(value));
+      b.bus.emit('a', 'from b');
+
+      expect(received).toEqual(['from a', 'from b']);
+      expect(a.bus.peek('a')).toBe('from b');
+    });
+
+    it('uses a newer copy at the slot as is, ignoring members it does not know', async () => {
+      const newer: Bus & { extra: () => void } = {
+        protocol: 2,
+        version: '9.0.0',
+        emit: vi.fn(),
+        on: vi.fn(() => () => {}),
+        peek: vi.fn(() => 'from newer' as never),
+        extra: vi.fn(),
+      };
+      globalThis.__NF_BUS__ = newer;
+      const { bus } = await loadCopy();
+
+      bus.emit('a', 1, { retain: false });
+
+      expect(newer.emit).toHaveBeenCalledWith('a', 1, { retain: false });
+      expect(bus.peek('a')).toBe('from newer');
+      expect(bus.protocol).toBe(2);
+      expect(bus.version).toBe('9.0.0');
+      expect(globalThis.__NF_BUS__).toBe(newer);
+    });
+
+    // There is no detection: a value that is not a bus is used as is and fails on use.
+    it.each([
+      ['an object without methods', { protocol: 1 }],
+      ['a number', 1],
+    ])('fails on use when the slot holds %s', async (_, foreign) => {
+      (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = foreign;
+      const { bus } = await loadCopy();
+
+      expect(() => bus.emit('a', 1)).toThrow(TypeError);
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('passes the options of emit and on through to the installed bus', async () => {
+      const { bus, installNFBus } = await loadCopy();
+      installNFBus(createBus());
+      const controller = new AbortController();
+      bus.emit('a', 'stale');
+      bus.emit('b', 1, { retain: false });
+
+      const received: unknown[] = [];
+      bus.on('a', value => received.push(value), { replay: false, signal: controller.signal });
+      bus.emit('a', 'live');
+      controller.abort();
+      bus.emit('a', 'after abort');
+
+      expect(received).toEqual(['live']);
+      expect(bus.peek('b')).toBeUndefined();
+    });
+
+    it('works with destructured methods', async () => {
+      const { bus, installNFBus } = await loadCopy();
+      installNFBus(createBus());
+      const { emit, on, peek } = bus;
+      const received: unknown[] = [];
+
+      on('a', value => received.push(value));
+      emit('a', 1);
+
+      expect(received).toEqual([1]);
+      expect(peek('a')).toBe(1);
+    });
+
+    it('reports the protocol and version of the installed bus and is frozen', async () => {
+      const { bus, installNFBus } = await loadCopy();
+      installNFBus(createBus());
+
+      expect(bus.protocol).toBe(1);
+      expect(bus.version).toBe(version);
+      expect(Object.isFrozen(bus)).toBe(true);
+    });
+
+    describe('tap', () => {
+      it('opens a tap on the installed bus', async () => {
+        const { bus, installNFBus } = await loadCopy();
+        const installed = installNFBus(createBus());
+        const seen: unknown[] = [];
+
+        expect(bus.tap).toBeTypeOf('function');
+        const tap = bus.tap!('t', ({ channel, value }) => seen.push([channel, value]));
+        installed.emit('a', 1);
+        tap?.emit('b', 2);
+        const received: unknown[] = [];
+        installed.on('b', value => received.push(value));
+
+        expect(seen).toEqual([['a', 1]]);
+        expect(received).toEqual([2]);
+        expect(installed.tap?.('t', () => {})).toBeUndefined();
+      });
+
+      it('passes name and observer through to a bus installed by another copy', async () => {
+        const tap = { emit: vi.fn(), replay: vi.fn(), close: vi.fn() };
+        const installed = { ...createBusLike(), tap: vi.fn(() => tap) };
+        globalThis.__NF_BUS__ = installed;
+        const { bus } = await loadCopy();
+        const observer = vi.fn();
+
+        expect(bus.tap?.('t', observer)).toBe(tap);
+        expect(installed.tap).toHaveBeenCalledWith('t', observer);
+      });
+
+      // An older copy installed the bus before tap existed.
+      it('returns undefined when the installed bus has no tap', async () => {
+        globalThis.__NF_BUS__ = Object.freeze(createBusLike());
+        const { bus } = await loadCopy();
+
+        expect(bus.tap?.('t', () => {})).toBeUndefined();
+        // Lets callers feature-detect with `bus.tap?.()` as the docs advise.
+        expect(bus.tap).toBeUndefined();
+      });
+
+      // The facade reads tap from the slot on every access, not once at import.
+      it('follows the installed bus', async () => {
+        globalThis.__NF_BUS__ = Object.freeze(createBusLike());
+        const { bus } = await loadCopy();
+        expect(bus.tap).toBeUndefined();
+
+        const tap = vi.fn();
+        globalThis.__NF_BUS__ = { ...createBusLike(), tap };
+
+        expect(bus.tap).toBe(tap);
+      });
+    });
+  });
+
+  // The global stays untyped so copies built against different versions merge without TS2403.
+  it('types the global slot loosely and the typed Bus as assignable to it', () => {
+    expectTypeOf<Bus>().toExtend<NativeFederationBus>();
+    expectTypeOf(globalThis.__NF_BUS__).toEqualTypeOf<NativeFederationBus | undefined>();
+    expectTypeOf<ReturnType<NativeFederationBus['peek']>>().toEqualTypeOf<unknown>();
   });
 });

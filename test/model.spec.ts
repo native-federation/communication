@@ -234,7 +234,7 @@ describe('bus properties', () => {
     | { kind: 'on'; copy: number; channel: ChannelId };
 
   it('behaves as one bus however operations spread over several copies of the module', async () => {
-    const copies: { bus: Bus }[] = [];
+    const copies: (typeof import('../src/lib/global/global-bus.js'))[] = [];
     for (let i = 0; i < 3; i++) {
       vi.resetModules();
       copies.push(await import('../src/lib/global/global-bus.js'));
@@ -254,6 +254,7 @@ describe('bus properties', () => {
     fc.assert(
       fc.property(fc.array(op, { maxLength: 40 }), ops => {
         delete globalThis.__NF_BUS__;
+        copies[0]!.installNFBus(createBus());
         const reference = createBus();
         const spread: unknown[][] = [];
         const single: unknown[][] = [];

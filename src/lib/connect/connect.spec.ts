@@ -155,14 +155,15 @@ describe('connect', () => {
       expect(transport.sent).toHaveLength(1);
     });
 
-    // Node has no window, so the page bus is the inert one, which has no tap.
-    it('is refused on the inert bus outside a single-user realm', () => {
+    // With nothing installed the global bus is the inert one, which has no tap.
+    it('is refused when no bus is installed', () => {
       const transport = endpoint();
       const connection = connect(transport, ['a']);
 
       expect(connection).toBeUndefined();
       expect(transport.listen).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(/cannot connect transports: no bus is installed/);
     });
   });
 

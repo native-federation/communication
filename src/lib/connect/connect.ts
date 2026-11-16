@@ -1,7 +1,7 @@
 import type { ChannelName, Tap } from '../domain/bus/bus.contract.js';
 import type { Connection, ConnectOptions, Transport } from '../domain/connect/connect.contract.js';
 import { assertChannel, noop } from '../bus/arguments.js';
-import { getGlobalBus } from '../global/global-bus.js';
+import { bus as globalBus } from '../global/global-bus.js';
 
 function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
   let unlisten: () => void;
@@ -33,11 +33,11 @@ export function connect(
 ): Connection | undefined {
   channels.forEach(assertChannel);
   const listed = new Set<string>(channels);
-  const bus = options?.bus ?? getGlobalBus();
+  const bus = options?.bus ?? globalBus;
   if (!bus.tap) {
     console.warn(
-      '[native-federation-communication] This bus cannot connect transports: an older copy installed ' +
-        'it, or this is not a single-user realm (a browser page or React Native).'
+      '[native-federation-communication] This bus cannot connect transports: no bus is installed, ' +
+        'or an older copy installed it.'
     );
     return undefined;
   }

@@ -38,7 +38,7 @@ assert.deepEqual(received, [1]);
 assert.equal(own.peek('cart:count'), 1);
 assert.equal(own.version, manifest.version);
 
-// Outside a browser the page bus drops values, installs nothing and says so once.
+// With nothing installed the global bus drops values, installs nothing and says so once.
 const warnings = [];
 console.warn = message => warnings.push(message);
 bus.emit('cart:count', 2);
@@ -47,8 +47,7 @@ assert.equal(bus.peek('cart:count'), undefined);
 assert.equal(globalThis.__NF_BUS__, undefined);
 assert.equal(warnings.length, 1);
 
-// A realm whose window is the global counts as a page: init-bus.js installs, and `bus` follows it.
-globalThis.window = globalThis;
+// init-bus.js installs a bus, under node too, and `bus` follows it.
 await import(`${NAME}/init-bus.js`);
 const installed = globalThis.__NF_BUS__;
 assert.equal(installed?.protocol, 1);

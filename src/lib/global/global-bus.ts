@@ -1,20 +1,19 @@
 import type { Bus } from '../domain/bus/bus.contract.js';
 import { assertChannel, assertListener, noop } from '../bus/arguments.js';
-import { createBus, VERSION } from '../bus/create-bus.js';
+import { VERSION } from '../bus/create-bus.js';
 
-const METHODS = ['emit', 'on', 'peek'] as const;
+type Slot = { __NF_BUS__?: Bus };
 
-let fallback: Bus | undefined;
-let warnedInert = false;
+let warned = false;
 
 function dropped(channel: unknown): undefined {
   assertChannel(channel);
-  if (warnedInert) return;
-  warnedInert = true;
+  if (warned) return;
+  warned = true;
   console.warn(
-    '[native-federation-communication] No bus is installed outside a browser page, so this bus drops ' +
-      'every value. On a server, install a request-scoped bus at boot (see "Outside a browser" in the ' +
-      'docs). Only in a single-user process: globalThis.__NF_BUS__ ??= createBus().'
+    '[native-federation-communication] No bus is installed, so this bus drops every value. Import ' +
+      "'@softarc/native-federation-communication/quickstart' or install one via " +
+      "'@softarc/native-federation-communication/internal'."
   );
 }
 
@@ -26,58 +25,30 @@ const inert: Bus = {
   peek: dropped,
 };
 
-const isBus = (slot: unknown): slot is Bus => {
-  const candidate = slot as Record<string, unknown> | null | undefined;
-  const protocol = candidate?.protocol;
-  return (
-    typeof protocol === 'number' &&
-    protocol >= 1 &&
-    METHODS.every(method => typeof candidate?.[method] === 'function')
-  );
-};
-
-function foreignFallback(): Bus {
-  if (!fallback) {
-    fallback = createBus();
-    console.warn(
-      '[native-federation-communication] globalThis.__NF_BUS__ holds something that is not a bus. ' +
-        'This copy uses a private bus, so its channels do not reach the other copies on the page.'
-    );
-  }
-  return fallback;
-}
+export const getNFBus = (loc: object = globalThis): Bus | undefined => (loc as Slot).__NF_BUS__;
 
 // A classic script's `var __NF_BUS__;` leaves a non-configurable slot that only assignment can fill.
-function install(): Bus {
-  const created = createBus();
-  const slot = { value: created, writable: false, enumerable: false, configurable: true };
-  if (!Reflect.defineProperty(globalThis, '__NF_BUS__', slot)) {
-    globalThis.__NF_BUS__ = created;
+export function installNFBus(bus: Bus, loc: object = globalThis): Bus {
+  if (getNFBus(loc) === undefined) {
+    const slot = { value: bus, writable: false, enumerable: false, configurable: true };
+    if (!Reflect.defineProperty(loc, '__NF_BUS__', slot)) (loc as Slot).__NF_BUS__ = bus;
   }
-  return created;
+  return getNFBus(loc) as Bus;
 }
 
-// A single-user realm (a browser page or React Native), not a server process (a shim may define `window` there).
-const isPage = (): boolean => typeof window !== 'undefined' && window === globalThis;
-
-export function getGlobalBus(): Bus {
-  const slot: unknown = globalThis.__NF_BUS__;
-  if (isBus(slot)) return slot;
-  if (slot !== undefined) return foreignFallback();
-  return isPage() ? install() : inert;
-}
+const current = (): Bus => getNFBus() ?? inert;
 
 export const bus: Bus = Object.freeze({
   get protocol() {
-    return getGlobalBus().protocol;
+    return current().protocol;
   },
   get version() {
-    return getGlobalBus().version;
+    return current().version;
   },
-  emit: (channel, value, options) => getGlobalBus().emit(channel, value, options),
-  on: (channel, listener, options) => getGlobalBus().on(channel, listener, options),
-  peek: channel => getGlobalBus().peek(channel),
+  emit: (channel, value, options) => current().emit(channel, value, options),
+  on: (channel, listener, options) => current().on(channel, listener, options),
+  peek: channel => current().peek(channel),
   get tap() {
-    return getGlobalBus().tap;
+    return current().tap;
   },
 } satisfies Bus);

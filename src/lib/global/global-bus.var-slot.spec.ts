@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 // A classic script's `var __NF_BUS__;` leaves a non-configurable slot that no test can delete, so
 // these cases get their own file and run in order on that one slot.
 import { createBus } from '../bus/create-bus.js';
@@ -8,7 +7,7 @@ async function loadCopy() {
   return import('./global-bus.js');
 }
 
-describe('the page bus over a var-declared slot', () => {
+describe('the global bus over a var-declared slot', () => {
   beforeAll(() => {
     Object.defineProperty(globalThis, '__NF_BUS__', {
       value: undefined,
@@ -22,7 +21,10 @@ describe('the page bus over a var-declared slot', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const a = await loadCopy();
     const b = await loadCopy();
+    const created = createBus();
 
+    expect(a.installNFBus(created)).toBe(created);
+    expect(b.installNFBus(createBus())).toBe(created);
     a.bus.emit('a', 1);
 
     expect(b.bus.peek('a')).toBe(1);
