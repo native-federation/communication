@@ -1,6 +1,6 @@
 import { createBus } from '../bus/create-bus.js';
 import { connectTransport } from '../connect/connect.js';
-import type { TapListener } from '../domain/bus/bus.contract.js';
+import type { Bus, TapListener } from '../domain/bus/bus.contract.js';
 import { busFrom } from './bus-from.js';
 
 // A bus whose methods need `this`: a private field throws when a method is called unbound.
@@ -78,6 +78,24 @@ describe('busFrom', () => {
     expect(listener).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is available here, so this call is dropped/);
+  });
+
+  // Without the guard each call re-enters the same facade until the stack overflows (RangeError).
+  it('throws a prefixed TypeError when the getter returns the facade itself', () => {
+    const bus: Bus = busFrom(() => bus);
+
+    for (const use of [
+      () => bus.emit('a', 1),
+      () => bus.on('a', () => {}),
+      () => bus.peek('a'),
+      () => bus.protocol,
+      () => bus.tap,
+    ]) {
+      expect(use).toThrow(TypeError);
+      expect(use).toThrow(
+        /^\[native-federation-communication\] This busFrom bus resolves to itself/
+      );
+    }
   });
 
   it('calls tap as a method of the bus, so a class-based bus can be tapped and connected', () => {

@@ -24,8 +24,17 @@ const inert: Bus = {
 };
 
 export function busFrom(getBus: () => NativeFederationBus | undefined): Bus {
-  const current = () => (getBus() ?? inert) as Bus;
-  return Object.freeze({
+  const current = (): Bus => {
+    const resolved = getBus() ?? inert;
+    if (resolved === facade) {
+      throw new TypeError(
+        "[native-federation-communication] This busFrom bus resolves to itself, e.g. the package's " +
+          '`bus` was given to installNFBus. Install a bus from createBus() instead.'
+      );
+    }
+    return resolved as Bus;
+  };
+  const facade: Bus = Object.freeze({
     get protocol() {
       return current().protocol;
     },
@@ -38,7 +47,10 @@ export function busFrom(getBus: () => NativeFederationBus | undefined): Bus {
     // Still undefined when the bus has no tap, so callers can feature-detect with `bus.tap?.()`.
     get tap() {
       const resolved = current();
-      return resolved.tap && ((name: string, listener: TapListener) => resolved.tap!(name, listener));
+      return (
+        resolved.tap && ((name: string, listener: TapListener) => resolved.tap!(name, listener))
+      );
     },
   } satisfies Bus);
+  return facade;
 }

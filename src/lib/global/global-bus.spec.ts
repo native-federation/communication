@@ -166,6 +166,21 @@ describe('the global bus', () => {
       expect(warn).not.toHaveBeenCalled();
     });
 
+    // A mistake the shape invites: the facade reads the slot, so installed there it reads itself.
+    it('throws a prefixed TypeError on use when the facade itself is installed', async () => {
+      const { bus } = await loadCopy();
+
+      expect(installNFBus(bus)).toBe(bus);
+
+      expect(() => bus.emit('a', 1)).toThrow(TypeError);
+      expect(() => bus.on('a', () => {})).toThrow(
+        /installNFBus\. Install a bus from createBus\(\)/
+      );
+      expect(() => bus.protocol).toThrow(
+        /^\[native-federation-communication\] .* resolves to itself/
+      );
+    });
+
     it('passes the options of emit and on through to the installed bus', async () => {
       const { bus } = await loadCopy();
       installNFBus(createBus());
