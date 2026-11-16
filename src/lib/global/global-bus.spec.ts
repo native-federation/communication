@@ -1,6 +1,7 @@
 import { version } from '../../../package.json';
 import { createBus } from '../bus/create-bus.js';
 import type { Bus } from '../domain/bus/bus.contract.js';
+import { installNFBus } from './slot.js';
 
 // A protocol-1 bus as a copy built before tap existed installs it.
 const createBusLike = () => ({
@@ -116,104 +117,11 @@ describe('the global bus', () => {
     });
   });
 
-  describe('getNFBus', () => {
-    it('returns the value at the slot as is, or undefined', async () => {
-      const { getNFBus } = await loadCopy();
-      const installed = createBus();
-
-      expect(getNFBus()).toBeUndefined();
-      globalThis.__NF_BUS__ = installed;
-      expect(getNFBus()).toBe(installed);
-    });
-
-    it('reads a custom location', async () => {
-      const { getNFBus } = await loadCopy();
-      const installed = createBus();
-
-      expect(getNFBus({})).toBeUndefined();
-      expect(getNFBus({ __NF_BUS__: installed })).toBe(installed);
-    });
-  });
-
-  describe('installNFBus', () => {
-    it('installs a non-writable, non-enumerable, configurable slot and returns the bus', async () => {
-      const { installNFBus } = await loadCopy();
-      const created = createBus();
-
-      expect(installNFBus(created)).toBe(created);
-
-      const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__NF_BUS__');
-      expect(descriptor).toMatchObject({ writable: false, enumerable: false, configurable: true });
-      expect(descriptor?.value).toBe(created);
-    });
-
-    it('refuses a blind reassignment and keeps the original bus', async () => {
-      const { installNFBus } = await loadCopy();
-      const installed = installNFBus(createBus());
-
-      expect(() => {
-        (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = {};
-      }).toThrow(TypeError);
-      expect(globalThis.__NF_BUS__).toBe(installed);
-    });
-
-    it('keeps and returns the bus already installed, by any copy', async () => {
-      const first = createBus();
-      (await loadCopy()).installNFBus(first);
-
-      expect((await loadCopy()).installNFBus(createBus())).toBe(first);
-      expect(globalThis.__NF_BUS__).toBe(first);
-    });
-
-    it('keeps whatever value is at the slot, even one that is not a bus', async () => {
-      const foreign = { protocol: 1 };
-      (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = foreign;
-      const { installNFBus } = await loadCopy();
-
-      expect(installNFBus(createBus())).toBe(foreign);
-    });
-
-    it('installs into a custom location only', async () => {
-      const { getNFBus, installNFBus } = await loadCopy();
-      const loc = {};
-      const created = createBus();
-
-      expect(installNFBus(created, loc)).toBe(created);
-      expect(getNFBus(loc)).toBe(created);
-      expect(Object.getOwnPropertyDescriptor(loc, '__NF_BUS__')).toMatchObject({
-        writable: false,
-        enumerable: false,
-        configurable: true,
-      });
-      expect(installNFBus(createBus(), loc)).toBe(created);
-      expect(globalThis.__NF_BUS__).toBeUndefined();
-    });
-
-    // defineProperty returns false there, and the fallback assignment throws in strict mode.
-    it('throws when the location cannot take the slot', async () => {
-      const { installNFBus } = await loadCopy();
-
-      expect(() => installNFBus(createBus(), Object.freeze({}))).toThrow(TypeError);
-    });
-
-    it('works with destructured methods of the installed bus', async () => {
-      const { installNFBus } = await loadCopy();
-      installNFBus(createBus());
-      const { emit, on } = globalThis.__NF_BUS__!;
-      const received: unknown[] = [];
-
-      on('a', value => received.push(value));
-      emit('a', 1);
-
-      expect(received).toEqual([1]);
-    });
-  });
-
   describe('the facade', () => {
     it('shares one installed bus between two copies of the module', async () => {
       const a = await loadCopy();
       const b = await loadCopy();
-      a.installNFBus(createBus());
+      installNFBus(createBus());
       expect(a.bus).not.toBe(b.bus);
 
       a.bus.emit('a', 'from a');
@@ -259,7 +167,7 @@ describe('the global bus', () => {
     });
 
     it('passes the options of emit and on through to the installed bus', async () => {
-      const { bus, installNFBus } = await loadCopy();
+      const { bus } = await loadCopy();
       installNFBus(createBus());
       const controller = new AbortController();
       bus.emit('a', 'stale');
@@ -276,7 +184,7 @@ describe('the global bus', () => {
     });
 
     it('works with destructured methods', async () => {
-      const { bus, installNFBus } = await loadCopy();
+      const { bus } = await loadCopy();
       installNFBus(createBus());
       const { emit, on, peek } = bus;
       const received: unknown[] = [];
@@ -289,7 +197,7 @@ describe('the global bus', () => {
     });
 
     it('reports the protocol and version of the installed bus and is frozen', async () => {
-      const { bus, installNFBus } = await loadCopy();
+      const { bus } = await loadCopy();
       installNFBus(createBus());
 
       expect(bus.protocol).toBe(1);
@@ -299,7 +207,7 @@ describe('the global bus', () => {
 
     describe('tap', () => {
       it('opens a tap on the installed bus', async () => {
-        const { bus, installNFBus } = await loadCopy();
+        const { bus } = await loadCopy();
         const installed = installNFBus(createBus());
         const seen: unknown[] = [];
 
