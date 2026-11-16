@@ -186,9 +186,9 @@ const app = {
   name: 'react-native',
   send: envelope => window.ReactNativeWebView?.postMessage(JSON.stringify(envelope)),
   listen: receive => {
-    window.__NF_FROM_APP__ = json => receive(JSON.parse(json));
-    window.ReactNativeWebView?.postMessage('nf:ready');
-    return () => delete window.__NF_FROM_APP__;
+    window.__SHOP_FROM_APP__ = json => receive(JSON.parse(json));
+    window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'webview-ready' }));
+    return () => delete window.__SHOP_FROM_APP__;
   },
 };
 
@@ -209,14 +209,17 @@ function webViewTransport(name, webView, onReady) {
     name,
     send: envelope => {
       const json = JSON.stringify(JSON.stringify(envelope));
-      webView.current?.injectJavaScript(`window.__NF_FROM_APP__?.(${json}); true;`);
+      webView.current?.injectJavaScript(`window.__SHOP_FROM_APP__?.(${json}); true;`);
     },
     listen: next => {
       receive = next;
       return () => (receive = () => {});
     },
-    onMessage: ({ nativeEvent: { data } }) =>
-      data === 'nf:ready' ? onReady() : receive(parse(data)),
+    onMessage: ({ nativeEvent: { data } }) => {
+      const message = parse(data);
+      if (message?.type === 'webview-ready') onReady();
+      else receive(message);
+    },
   };
 }
 
@@ -252,8 +255,8 @@ export function Shop() {
 ```
 
 - Values cross as JSON: functions and `undefined` fields are dropped, a `Date` arrives as a string.
-- A loaded or reloaded page starts empty, so the app replays its retained values when the page says
-  `nf:ready`. Not on `onLoadEnd`: a federated page often connects after its load event.
+- A loaded or reloaded page starts empty, so the app replays its retained values when the page posts
+  `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated page often connects after its load event.
 - Give each `WebView` its own transport name, since a bus connects a name once.
 - The injected script ends with `true;`, as react-native-webview asks.
 
