@@ -3,10 +3,19 @@
 # Migrating from the registry
 
 The orchestrator's event registry (`init-registry.mjs`, `window.__NF_REGISTRY__`, the `/registry`
-subpath) is deprecated in favour of this package. It keeps working, so you can move at your own pace.
+subpath) is deprecated in favour of this package. It keeps working, so you can move one channel at a
+time:
 
-The registry had resources (`register` / `onReady`) and streams (`emit` / `on`). The bus has channels
-that keep their last value; a resource and a stream with the same name become one channel.
+1. **Install the bus in the host**, with the `/install` import or `install.js`, before any code uses
+   it (see [Getting started](./getting-started.md#install)). Until then the bus drops every call and
+   warns.
+2. **Port each channel's producer and consumers together**, using the [mapping](#mapping) below. Where
+   that isn't possible, emit on both meanwhile, as in [Pages with both](#pages-with-both).
+3. **Remove `init-registry.mjs`** once nothing uses `__NF_REGISTRY__`.
+
+The registry had resources (`register` / `onReady`) and streams (`emit` / `on`). The bus has only
+channels, and a channel keeps its last value as its retained value, so it covers both: a resource and
+a stream with the same name become one channel.
 
 ## Mapping
 
@@ -29,13 +38,13 @@ that keep their last value; a resource and a stream with the same name become on
 | `data-max-streams`, `data-max-events`, `data-remove-percentage` | not needed: a channel keeps one value                                                              |
 | `{ data, timestamp }`                                           | put a timestamp in the value if a consumer needs one                                               |
 
-The host installs the bus once, with the `/install` import or `install.js`, before any code
-uses it: until then the bus drops every call and warns. A script that emits on a bus already on the
-page, such as the orchestrator's `orch.init-ready` announcement, needs `install.js` loaded before
-it.
+A script that emits on the bus without importing the package, such as the orchestrator's
+`orch.init-ready` announcement, needs `install.js` to run first: put the `install.js` tag before
+that script.
 
-`register(name, () => fn)` published `fn`, because `register` called functions. Ported literally,
-`emit(name, () => fn)` publishes the wrapper, which only TypeScript on a declared channel catches.
+`register(name, () => fn)` published `fn`, because `register` called functions. `emit` doesn't:
+ported literally, `emit(name, () => fn)` publishes the wrapper. Only TypeScript, on a
+[declared channel](./typing.md), reports that.
 
 ## Typing
 
@@ -61,15 +70,16 @@ Drop the type arguments. Where you used `Events['x']` as a type, use `ChannelVal
 
 ## Behaviour changes
 
-- **No copy.** The registry cloned values, which dropped functions. Listeners now get the producer's
-  object, so don't mutate it.
+- **No copy.** The registry cloned values, which dropped functions. Listeners on the bus get the
+  producer's object, so emit a new object instead of mutating it.
 - **Synchronous replay.** The retained value arrives before `on` returns.
 - **Isolated listeners.** A throwing listener no longer stops the others or the producer.
 
 ## Pages with both
 
-`init-registry.mjs` and `install.js` can run side by side, as separate buses. Move a channel's
-producer and consumers together, or emit on both meanwhile:
+`init-registry.mjs` and `install.js` run side by side as two separate buses: a value emitted on one
+never reaches the other. Move a channel's producer and consumers together, or emit on both
+meanwhile:
 
 ```js
 const cart = { count: 3 };

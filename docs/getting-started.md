@@ -2,7 +2,14 @@
 
 # Getting started
 
-TypeScript is optional; to check channel values, see [Typing](./typing.md).
+Two roles, two steps:
+
+1. **The host installs the bus once**, before any code uses it.
+2. **The host and every remote import `bus`** and use it.
+
+The **bus** is one object per page, kept at `globalThis.__NF_BUS__`. It carries values between micro
+frontends over named channels. TypeScript is optional; to check channel values, see
+[Typing](./typing.md).
 
 ## Install
 
@@ -12,28 +19,31 @@ TypeScript is optional; to check channel values, see [Typing](./typing.md).
 npm install @softarc/native-federation-communication
 ```
 
-The host installs the bus once, before any code uses it. Make it the first import of the module that
-`initFederation` loads, often `bootstrap.ts`: in a Native Federation host, shared packages such as
-this one resolve only after `initFederation`, so `main.ts` is too early. The `install.js` script
-tag works anywhere.
+**Host.** Make the `/install` import the first import of the module that `initFederation` loads,
+often `bootstrap.ts`. Not in `main.ts`: in a Native Federation host, shared packages such as this one
+resolve only after `initFederation` has run.
 
 ```js
+// bootstrap.ts in the host
 import '@softarc/native-federation-communication/install';
 ```
 
-The host and every remote then use the bus:
+**Host and remotes.** Import `bus` from the package itself:
 
 ```js
 import { bus } from '@softarc/native-federation-communication';
 ```
 
-Every remote may bundle its own copy; they all share the one bus at `globalThis.__NF_BUS__` (see
-[Multiple copies](./multiple-copies.md)). Importing `/install` again, from any copy, keeps the bus
-that is there. A remote that also runs on its own can import it in its standalone entry.
+A remote doesn't import `/install`. It can bundle its own copy of the package or get the host's
+through native federation: every copy reads the bus from `globalThis.__NF_BUS__`, so all of them use
+the one bus the host installed (see [Multiple copies](./multiple-copies.md)). A second `/install`
+import, from any copy, keeps the bus that is already there. The one exception is a remote that also
+runs as a standalone app: there it is its own host, so its standalone entry imports `/install`.
 
 ### With a script tag
 
-Load `install.js` as a classic script, before any script that uses the bus:
+Without a build step, the host loads `install.js` as a classic script, before any script that uses
+the bus:
 
 ```html
 <script
@@ -46,45 +56,66 @@ Load `install.js` as a classic script, before any script that uses the bus:
 - Replace `HASH` with the output of `openssl dgst -sha384 -binary install.js | openssl base64 -A`.
   Serving the file from your own host is better still.
 - Keep the exact version: a range such as `@4` never matches a prerelease.
-- The bus is then `globalThis.__NF_BUS__`, with the same methods as `bus`. Code that must survive a
-  failed load calls `globalThis.__NF_BUS__?.on(…)`.
+- Scripts without a bundler use the bus as `globalThis.__NF_BUS__`; it has the same methods as `bus`.
+  Code that must keep running when the script failed to load calls `globalThis.__NF_BUS__?.on(…)`.
 
-A remote without a build step can still import `bus` by name when native federation shares the package.
+A remote module without a build step can still `import { bus } from '@softarc/native-federation-communication'`
+when native federation shares the package.
 
 ### Without an installed bus
 
-`bus` works before a bus is installed, but drops every call and warns once per copy, naming the first
-dropped call. It uses the installed bus from the next call on, so values emitted before that are lost,
-and so are listeners added before it. Install it first, in the host.
+If nothing has installed a bus, `bus` is **inert**: it drops every call and logs one warning per copy
+of the package, naming the first dropped call (the text is in the
+[API](./api.md#without-an-installed-bus)). Once the host installs a bus, the next call goes to it,
+but what was dropped stays lost:
+
+```js
+// a remote that runs before the host has installed a bus
+bus.emit('cart:changed', { count: 3 }); // dropped, and logs the warning
+bus.on('cart:changed', render); // dropped: render never runs, not even after the install
+
+// later, after the host's /install import has run
+bus.peek('cart:changed'); // undefined: the emit above went nowhere
+```
+
+The fix is always the same: install the bus in the host, before any remote code runs.
 
 ## State
 
-A state channel keeps its last value for listeners that come later: the user, the cart, the theme.
+A **channel** is a string name, such as `'shell:user'`. Each `emit` sends a value to the channel's
+**listeners**, the functions subscribed with `on`. By default the channel also keeps the value as its
+**retained value**, and a listener that subscribes later gets it straight away. Use this for state:
+the user, the cart, the theme.
 
 ```js
 // shell
 bus.emit('shell:user', { id: 'u-42', name: 'Ada' });
 
-// any remote, loaded before or after: called now if a value exists, and on every later emit
+// any remote, loaded before or after the emit: renderGreeting runs at once if a value is retained,
+// then on every later emit
 const off = bus.on('shell:user', user => renderGreeting(user.name));
 off(); // when the remote is torn down
+
+bus.peek('shell:user'); // { id: 'u-42', name: 'Ada' }, without subscribing
 ```
 
 ## Commands
 
-A command should happen once, now, such as showing a toast. Emit it with `{ retain: false }`, which
-also clears the channel's retained value, through one helper per channel, so no call site can forget
-the option:
+A **command** is a value for whoever listens right now, such as "show this toast". Emit it with
+`{ retain: false }`: the current listeners get it, and the channel keeps nothing, so a listener that
+subscribes later doesn't replay an old toast. Put the option in one helper per channel, so no call
+site can forget it:
 
 ```js
 // toast.js: the only place that emits ui:toast
 export const showToast = toast => bus.emit('ui:toast', toast, { retain: false });
 
-// shell: { replay: false } ignores a stale command if a producer forgot retain: false
+// shell: { replay: false } ignores a retained value, in case a producer emitted without retain: false
 bus.on('ui:toast', ({ text }) => toaster.show(text), { replay: false });
 ```
 
-Keep one kind per channel: state or commands. Values come from other deploys, so check them before you
-trust them.
+Use each channel for one kind of value: state or commands, not both.
 
-Next: the [API](./api.md) and its pitfalls, then the [Recipes](./recipes.md).
+Values come from other deploys, so validate them before you trust them.
+
+Next: the [API](./api.md) and its [pitfalls](./api.md#pitfalls), then the [Recipes](./recipes.md).

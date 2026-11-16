@@ -2,12 +2,14 @@
 
 # Recipes
 
-There are no framework adapters: `on` returns the cleanup function every framework asks for. Copy what
-you need.
+The package ships no framework adapters: `on` returns `off`, which is the cleanup function every
+framework asks for. Copy the recipe you need into your app. Every snippet uses the installed bus
+through `bus`, so the host must have [installed it](./getting-started.md#install).
 
 ## Angular
 
-Hand `off` to `DestroyRef`, and seed the signal with `peek` so the first render has the value:
+For state, hand `off` to `DestroyRef`, and seed the signal with `peek` so the first render has the
+retained value:
 
 ```ts
 import { DestroyRef, inject, signal, type Signal } from '@angular/core';
@@ -22,8 +24,8 @@ export function channelSignal<K extends ChannelName>(
 }
 ```
 
-A command has nothing to show, so subscribe directly. In `provideAppInitializer` or a root service the
-listener lives as long as the app, and a `TestBed` reset removes it:
+A command has nothing to render, so subscribe directly. In `provideAppInitializer` or a root service
+the listener lives as long as the app, and a `TestBed` reset removes it:
 
 ```ts
 provideAppInitializer(() => {
@@ -58,7 +60,8 @@ export function useChannel(channel) {
 
 ## RxJS
 
-Each micro frontend bundles its own RxJS, so send plain values over the bus and wrap it with your own:
+Each micro frontend bundles its own RxJS, so send plain values over the bus, not observables, and
+wrap the bus with your own RxJS:
 
 ```js
 import { Observable } from 'rxjs';
@@ -73,12 +76,14 @@ export const fromChannel = channel =>
   new Observable(subscriber => bus.on(channel, value => subscriber.next(value)));
 ```
 
-`off` becomes the teardown, and the retained value arrives on subscribe, like a `BehaviorSubject`.
+`off` becomes the teardown, and a subscriber gets the retained value on subscribe, like a
+`BehaviorSubject`.
 
 ## `firstValue`
 
-For app initializers, guards and top-level `await`: resolves with the retained or the next value, then
-unsubscribes. It aborts its own controller, because `off` doesn't exist yet during the first call.
+For app initializers, guards and top-level `await`: `firstValue` resolves with the retained value, or
+else the next one, then unsubscribes. It unsubscribes by aborting its own controller, because `off`
+doesn't exist yet while the retained value is delivered.
 
 ```js
 import { bus } from '@softarc/native-federation-communication';
@@ -104,11 +109,12 @@ export function firstValue(channel, { signal } = {}) {
 const user = await firstValue('shell:user', { signal: AbortSignal.timeout(5000) });
 ```
 
-Await it only in the browser: on a server it may never settle.
+Await it only in the browser. Where the bus is inert, as on a server outside a request, `on` drops
+the listener, so the promise settles only when its `signal` aborts.
 
 ## Custom elements
 
-One `AbortController` per connection removes every subscription at once:
+One `AbortController` per `connectedCallback` removes every subscription of the element at once:
 
 ```js
 import { bus } from '@softarc/native-federation-communication';
@@ -133,10 +139,11 @@ customElements.define('cart-badge', CartBadge);
 
 ## Server-side rendering
 
-A process-wide bus would show one user's values to the next, so never import `/install` in server
-code: only in the browser or React Native entry. Without an installed bus, server code gets the inert
-bus, which drops every call and warns once. For a bus per request, install, once at boot, a
-[`busFrom`](./api.md#entry-points) bus that looks up the current request's own bus on every call:
+Never import `/install` in server code: one bus for the whole process would show one user's retained
+values to the next. Import it only in the browser or React Native entry. Without an installed bus,
+server code gets the [inert bus](./api.md#without-an-installed-bus), which drops every call and warns
+once per copy. To give each request its own bus, install, once at boot, a
+[`busFrom`](./api.md#busfromgetbus) bus that looks up the current request's bus on every call:
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -159,12 +166,14 @@ installRequestBus();
 server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 ```
 
-`installRequestBus` throws when something installed a bus first, since every request would share
-that one. Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share
-the request's bus, across `await` too. Outside a request the store is empty, so a call goes to the
-[inert bus](./api.md#without-an-installed-bus): its arguments are checked, then it is dropped with one
-warning. With a browser and a server entry, keep the `/install` import in the browser one (in a
-federated host, its `bootstrap.ts`), and call `installRequestBus()` from the server one.
+- `installRequestBus` throws when another bus was installed first, since every request would share
+  that one.
+- Every copy uses what is in `__NF_BUS__`, so the host's and every remote's server code use the
+  current request's bus, across `await` too.
+- Outside a request the store is empty, so a call goes to the inert bus: its arguments are checked,
+  then it is dropped with the warning.
+- With a browser and a server entry, keep the `/install` import in the browser entry (in a federated
+  host, its `bootstrap.ts`), and call `installRequestBus()` from the server entry.
 
 ## React Native and WebView
 
@@ -176,10 +185,10 @@ React Native has a bus of its own, and so has each page in a `react-native-webvi
 `connectTransport` from the main entry. `/transport/broadcast-channel` isn't needed, and Metro
 resolves the package's `exports` by default from React Native 0.79.
 
-The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
-receives through a global of its own that the app calls. `connectTransport` calls `listen` once it
-is connected, so that is where the page tells the app it is ready, with a message of its own that is
-not an envelope:
+**The page** sends with `window.ReactNativeWebView.postMessage`, which exists once the app's
+`WebView` has an `onMessage` prop, and receives through a global function of its own that the app
+calls. `connectTransport` calls `listen` once it has connected, so `listen` is where the page tells
+the app it is ready, with a message that is not an envelope:
 
 ```js
 import { connectTransport } from '@softarc/native-federation-communication';
@@ -197,8 +206,8 @@ const app = {
 connectTransport(app, ['cart:changed', 'auth:user']);
 ```
 
-The app injects a call to that global, with the JSON encoded twice so it is a string literal, and gets
-the page's messages from `onMessage`:
+**The app** sends by injecting a call to that global, with the JSON encoded twice so it is a string
+literal, and receives the page's messages in `onMessage`:
 
 ```jsx
 import { useEffect, useRef, useState } from 'react';
@@ -265,8 +274,8 @@ export function Shop() {
 
 ## Testing
 
-App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Put a fresh bus from
-`createBus()` there in a setup file; no DOM environment is needed:
+App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. So a test setup file puts
+a fresh bus from `createBus()` there before each test; no DOM environment is needed:
 
 ```js
 import { createBus } from '@softarc/native-federation-communication/setup';
@@ -284,8 +293,8 @@ afterEach(() => {
 });
 ```
 
-A rethrown error also skips that `emit`'s remaining deliveries, which is fine in a test. Without
+A rethrown error also skips the remaining deliveries of that `emit`, which is fine in a test. Without
 `vi.stubGlobal`, use
 `Object.defineProperty(globalThis, '__NF_BUS__', { value: createBus(), configurable: true })`: a
 plain assignment throws once `/install` or `installGlobalBus` has filled the slot. Code that takes the
-bus as a parameter can get a `createBus()` of its own instead.
+bus as a parameter needs no global: pass it a `createBus()` of its own.

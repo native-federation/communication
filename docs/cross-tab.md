@@ -2,69 +2,94 @@
 
 # Cross-tab
 
-`broadcastChannelTransport` is a [transport](./api.md#transports) that mirrors the listed channels
-into every other tab of the same origin:
+To share channels between tabs of the same origin, the host connects `broadcastChannelTransport` to
+the bus, once, listing the channels to share:
 
 ```js
+import '@softarc/native-federation-communication/install';
 import { connectTransport } from '@softarc/native-federation-communication';
 import { broadcastChannelTransport } from '@softarc/native-federation-communication/transport/broadcast-channel';
 
 const connection = connectTransport(broadcastChannelTransport(), ['cart:changed', 'auth:user']);
 ```
 
-## Why BroadcastChannel
-
-A `CustomEvent` dispatched on `window` or `document` runs its listeners inside that one document only.
-It never reaches another tab, popup or iframe, and inside one document `__NF_BUS__` already does that
-job. What crosses tabs is `BroadcastChannel`, so the transport uses it and no `CustomEvent` at all.
+An emit on `cart:changed` in one tab is then emitted on `cart:changed` in every other tab that made the
+same call. Channels you don't list stay in their tab. `broadcastChannelTransport` is a
+[transport](./api.md#transports), and `connectTransport` is described in the
+[API](./api.md#connecttransporttransport-channels-options).
 
 ## Connect once, in the host
 
-Connect after the bus is installed, such as after the `/install` import: without an installed bus
-`connectTransport` warns and returns `undefined`. List the channels explicitly. Channels you don't
-list stay in the tab.
+- **Connect after the bus is installed**, as above. Without an installed bus, `connectTransport` warns
+  `… is not connected: no bus is installed.` and returns `undefined`.
+- **List every channel in this one call.** Every copy's `broadcastChannelTransport()` has the same
+  name, `broadcast:native-federation-communication/1`, and a bus accepts a name once. A second
+  `connectTransport` with it, from the host or a remote, warns
+  `… is not connected: the name is already taken on this bus by a tap or transport.`, returns
+  `undefined`, and bridges none of its channels.
+- **After `connection.close()`, nothing is bridged** until the host calls `connectTransport` again.
 
-Sync source channels, not the ones derived from them. If a listener on `cart:changed` emits
-`cart:count` and both are synced, every tab gets `cart:count` twice: once from its own listener and
-once from the other tab.
+Sync source channels, not the channels derived from them. If a listener on `cart:changed` emits
+`cart:count` and both are listed, every other tab gets `cart:count` twice: once from its own listener
+and once from the tab that emitted.
 
 ## What crosses
 
-- Only values that can be [structured-cloned](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm).
-  The other tab gets a copy, not your object, and class instances arrive as plain objects.
-- A value arrives one task later, in emit order. The local `emit` stays synchronous.
-- An uncloneable value (a function, a DOM node, or an object holding one) goes to `reportError` like a
-  throwing listener. The local listeners still get it, but the whole value is dropped for other tabs,
-  so they keep their previous value.
+```js
+// tab A
+bus.emit('cart:changed', { count: 3 });
+// tab B, one task later: its cart:changed listeners get { count: 3 }, and it is retained there
+```
 
-`retain` carries across: a retained emit is retained in the other tab, a retained `undefined` included,
-and `{ retain: false }` clears the other tab's retained value.
+- **Copies, not references.** Values are
+  [structured-cloned](https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Structured_clone_algorithm):
+  the other tab gets a copy, and class instances arrive as plain objects.
+- **One task later, in emit order.** The local `emit` still delivers synchronously.
+- **`retain` crosses too.** A retained emit is retained in the other tab, a retained `undefined`
+  included, and `{ retain: false }` clears the other tab's retained value.
+- **Uncloneable values stay local.** For a value that holds a function or a DOM node, the local
+  listeners get it, the error goes to `reportError` like a listener that throws, and other tabs keep
+  their previous value.
 
-## Live only
+## A new tab starts empty
 
-A new tab gets nothing until the next emit; read the initial state from the server or the URL.
-`connection?.replayRetained()` only pushes this tab's retained values, at most one per channel, to
-the others, overwriting theirs; it never asks them for theirs. Emits from two tabs at the same moment
-may leave the tabs with different values; there is no last-writer-wins.
+The transport is live only: a tab that opens gets nothing until the next emit in another tab. Read
+the initial state from the server or the URL.
 
-## Copies
+`connection?.replayRetained()` sends this tab's retained values of the listed channels to the other
+tabs, overwriting theirs. It doesn't fetch theirs. Two tabs that emit on the same channel at the same
+moment can each end up with the other's value; nothing decides a winner.
 
-Every copy's `broadcastChannelTransport()` has the same name,
-`broadcast:native-federation-communication/1`, so a second `connectTransport` on the same bus warns
-that the name is already taken, returns `undefined`, and its channels are not bridged. List every
-channel in the host's one `connectTransport`. If the host calls `close()`, nobody takes over; connect
-again.
+## Wires
 
-All tabs share one wire, `native-federation-communication/1`. A private bus from `createBus()` (in
-`/setup`) connected with `{ bus }` on that wire cross-talks with the page bus, so give it its own:
-`broadcastChannelTransport('my-tests')`.
+The **wire** is the name of the `BroadcastChannel` the transport opens. Every tab on the same wire
+hears every other. The default wire is `native-federation-communication/1`, and the transport name is
+`broadcast:` plus the wire.
 
-One instance per connection: connecting an instance to a second bus throws (where
-`BroadcastChannel` exists). Give each bus its own instance.
+A second bus on the default wire, such as a `createBus()` bus connected with `{ bus }` in a test, hears
+the page bus's tabs. Give it a wire of its own:
+
+```js
+connectTransport(broadcastChannelTransport('my-tests'), ['cart:changed'], { bus: testBus });
+```
+
+Use one transport instance per connection. Connecting an instance to a second bus while its first
+connection is open throws, where `BroadcastChannel` exists:
+
+```text
+[native-federation-communication] broadcastChannelTransport('native-federation-communication/1') is already listening; use one instance per connection.
+```
 
 ## Scope
 
 - Same origin and same storage partition only. Same-origin iframes are included.
 - A tab kept in the back-forward cache is evicted when a message reaches it.
-- Without `BroadcastChannel` (React Native, for one), the transport sends and receives nothing.
-- In tests, call `connection?.close()`: an open channel keeps Node running.
+- Without `BroadcastChannel` (React Native, for one), the transport sends and receives nothing. For
+  React Native, see [React Native and WebView](./recipes.md#react-native-and-webview).
+- In tests, call `connection?.close()`: an open `BroadcastChannel` keeps Node running.
+
+## Why BroadcastChannel
+
+A `CustomEvent` dispatched on `window` or `document` runs its listeners inside that one document. It
+never reaches another tab, popup or iframe, and inside one document the bus already does that job.
+`BroadcastChannel` crosses tabs, so the transport uses it.
