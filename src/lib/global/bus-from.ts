@@ -10,8 +10,8 @@ function dropped(channel: unknown): undefined {
   warned = true;
   console.warn(
     '[native-federation-communication] No bus is available here, so this call is dropped. Install ' +
-      "one with '@softarc/native-federation-communication/quickstart' or via " +
-      "'@softarc/native-federation-communication/internal'."
+      "one with '@softarc/native-federation-communication/install' or via " +
+      "'@softarc/native-federation-communication/setup'."
   );
 }
 

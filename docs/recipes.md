@@ -133,14 +133,14 @@ customElements.define('cart-badge', CartBadge);
 
 ## Server-side rendering
 
-A process-wide bus would show one user's values to the next, so never import `/quickstart` in server
+A process-wide bus would show one user's values to the next, so never import `/install` in server
 code: only in the browser or React Native entry. Without an installed bus, server code gets the inert
 bus, which drops every call and warns once. For a bus per request, install, once at boot, a
 [`busFrom`](./api.md#entry-points) bus that looks up the current request's own bus on every call:
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { busFrom, createBus, installNFBus } from '@softarc/native-federation-communication/internal';
+import { busFrom, createBus, installNFBus } from '@softarc/native-federation-communication/setup';
 
 const requests = new AsyncLocalStorage();
 
@@ -163,7 +163,7 @@ server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 that one. Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share
 the request's bus, across `await` too. Outside a request the store is empty, so a call goes to the
 [inert bus](./api.md#without-an-installed-bus): its arguments are checked, then it is dropped with one
-warning. With a browser and a server entry, keep the `/quickstart` import in the browser one (in a
+warning. With a browser and a server entry, keep the `/install` import in the browser one (in a
 federated host, its `bootstrap.ts`), and call `installRequestBus()` from the server one.
 
 ## React Native and WebView
@@ -171,8 +171,8 @@ federated host, its `bootstrap.ts`), and call `installRequestBus()` from the ser
 React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
 [`connect`](./api.md#connecttransport-channels-options) and one [transport](./api.md#transports) per
 side. Each side installs its bus once, first thing in its entry (the app's `index.js`; in a federated
-page, the module `initFederation` loads), with `import '@softarc/native-federation-communication/quickstart';`, and imports `bus` and
-`connect` from the main entry. `./transport/cross-tab` isn't needed, and Metro resolves the package's
+page, the module `initFederation` loads), with `import '@softarc/native-federation-communication/install';`, and imports `bus` and
+`connect` from the main entry. `./transport/broadcast-channel` isn't needed, and Metro resolves the package's
 `exports` by default from React Native 0.79.
 
 The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
@@ -263,7 +263,7 @@ App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Put a
 `createBus()` there in a setup file; no DOM environment is needed:
 
 ```js
-import { createBus } from '@softarc/native-federation-communication/internal';
+import { createBus } from '@softarc/native-federation-communication/setup';
 
 beforeEach(() => {
   vi.stubGlobal('__NF_BUS__', createBus());
@@ -281,5 +281,5 @@ afterEach(() => {
 A rethrown error also skips that `emit`'s remaining deliveries, which is fine in a test. Without
 `vi.stubGlobal`, use
 `Object.defineProperty(globalThis, '__NF_BUS__', { value: createBus(), configurable: true })`: a
-plain assignment throws once `/quickstart` or `installNFBus` has filled the slot. Code that takes the
+plain assignment throws once `/install` or `installNFBus` has filled the slot. Code that takes the
 bus as a parameter can get a `createBus()` of its own instead.

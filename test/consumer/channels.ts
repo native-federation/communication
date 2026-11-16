@@ -4,7 +4,7 @@ import {
   type Bus,
   type ChannelValue as MainChannelValue,
 } from '@softarc/native-federation-communication';
-import { createBus } from '@softarc/native-federation-communication/internal';
+import { createBus } from '@softarc/native-federation-communication/setup';
 import type { ChannelValue } from '@softarc/native-federation-communication/domain';
 
 declare module '@softarc/native-federation-communication' {

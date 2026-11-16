@@ -15,22 +15,22 @@ The library is deliberately small. The object on `globalThis.__NF_BUS__` is the 
 ## Source Code Organization
 
 ```
-src/index.ts                   '.': bus, connect and the types
-src/domain.ts                  './domain': the types only
-src/internal.ts                './internal': createBus, busFrom, getNFBus and installNFBus
-src/quickstart.ts              './quickstart' and './quickstart.js': installs a bus, nothing else
-src/transport/cross-tab.ts     './transport/cross-tab': broadcastTransport
-src/lib/domain/                the contracts (*.contract.ts) and their barrels, per area
-src/lib/bus/create-bus.ts      the bus itself, tap included
-src/lib/global/slot.ts         getNFBus and installNFBus: reading and filling __NF_BUS__
-src/lib/global/bus-from.ts     busFrom: a bus facade over a getter, and the inert bus it falls back to
-src/lib/global/global-bus.ts   bus: busFrom(getNFBus)
-src/lib/connect/connect.ts     connect: a transport bridged through a tap
-src/lib/cross-tab/             broadcastTransport
-test/                          tests against the build (test/.dist, built by global-setup.ts)
-test/recipes/                  the plain-JS recipes from docs/recipes.md, run by test/recipes.spec.ts
-docs/                          user documentation
-build.js                       esbuild bundles, tsc declarations and the dist package.json
+src/index.ts                         '.': bus, connect and the types
+src/domain.ts                        './domain': the types only
+src/setup.ts                         './setup': createBus, busFrom, getNFBus and installNFBus
+src/install.ts                       './install' and './install.js': installs a bus, nothing else
+src/transport/broadcast-channel.ts   './transport/broadcast-channel': broadcastChannelTransport
+src/lib/domain/                      the contracts (*.contract.ts) and their barrels, per area
+src/lib/bus/create-bus.ts            the bus itself, tap included
+src/lib/global/slot.ts               getNFBus and installNFBus: reading and filling __NF_BUS__
+src/lib/global/bus-from.ts           busFrom: a bus facade over a getter, and the inert bus it falls back to
+src/lib/global/global-bus.ts         bus: busFrom(getNFBus)
+src/lib/connect/connect.ts           connect: a transport bridged through a tap
+src/lib/transport/                   broadcastChannelTransport
+test/                                tests against the build (test/.dist, built by global-setup.ts)
+test/recipes/                        the plain-JS recipes from docs/recipes.md, run by test/recipes.spec.ts
+docs/                                user documentation
+build.js                             esbuild bundles, tsc declarations and the dist package.json
 ```
 
 Unit tests (`*.spec.ts`) sit next to the code they test. `./package.json` is exported as well.

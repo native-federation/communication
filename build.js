@@ -57,38 +57,38 @@ function generateBundles() {
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/internal`]: {
+    [`${PACKAGE_NAME}/setup`]: {
       ...baseConfig,
       format: 'esm',
-      entryPoints: ['src/internal.ts'],
-      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-internal.mjs'),
+      entryPoints: ['src/setup.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-setup.mjs'),
       minify: false,
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/quickstart`]: {
+    [`${PACKAGE_NAME}/install`]: {
       ...baseConfig,
       format: 'esm',
-      entryPoints: ['src/quickstart.ts'],
-      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-quickstart.mjs'),
+      entryPoints: ['src/install.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-install.mjs'),
       minify: false,
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/transport/cross-tab`]: {
+    [`${PACKAGE_NAME}/transport/broadcast-channel`]: {
       ...baseConfig,
       format: 'esm',
-      entryPoints: ['src/transport/cross-tab.ts'],
-      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-transport-cross-tab.mjs'),
+      entryPoints: ['src/transport/broadcast-channel.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-transport-broadcast-channel.mjs'),
       minify: false,
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/quickstart.js`]: {
+    [`${PACKAGE_NAME}/install.js`]: {
       ...baseConfig,
       format: 'iife',
-      entryPoints: ['src/quickstart.ts'],
-      outfile: path.join(OUT_DIR, 'quickstart.js'),
+      entryPoints: ['src/install.ts'],
+      outfile: path.join(OUT_DIR, 'install.js'),
       minify: true,
       sourcemap: false,
     },
@@ -109,27 +109,27 @@ function generatePackageExports() {
         import: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
       },
-      './internal': {
-        types: './types/internal.d.ts',
-        import: `./fesm2022/${PACKAGE_NAME}-internal.mjs`,
-        default: `./fesm2022/${PACKAGE_NAME}-internal.mjs`,
+      './setup': {
+        types: './types/setup.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-setup.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-setup.mjs`,
       },
-      './quickstart': {
-        types: './types/quickstart.d.ts',
-        import: `./fesm2022/${PACKAGE_NAME}-quickstart.mjs`,
-        default: `./fesm2022/${PACKAGE_NAME}-quickstart.mjs`,
+      './install': {
+        types: './types/install.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-install.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-install.mjs`,
       },
-      './transport/cross-tab': {
-        types: './types/transport/cross-tab.d.ts',
-        import: `./fesm2022/${PACKAGE_NAME}-transport-cross-tab.mjs`,
-        default: `./fesm2022/${PACKAGE_NAME}-transport-cross-tab.mjs`,
+      './transport/broadcast-channel': {
+        types: './types/transport/broadcast-channel.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-transport-broadcast-channel.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-transport-broadcast-channel.mjs`,
       },
-      './quickstart.js': { default: './quickstart.js' },
+      './install.js': { default: './install.js' },
     },
     typings: './types/index.d.ts',
     module: `./fesm2022/${PACKAGE_NAME}.mjs`,
     type: 'module',
-    sideEffects: [`./fesm2022/${PACKAGE_NAME}-quickstart.mjs`, './quickstart.js'],
+    sideEffects: [`./fesm2022/${PACKAGE_NAME}-install.mjs`, './install.js'],
   };
 }
 

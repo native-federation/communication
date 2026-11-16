@@ -13,7 +13,7 @@ whatever is there, in any runtime, whichever copy installed it. There is no priv
 
 - **Nothing is installed**: `bus` is [inert](./api.md#without-an-installed-bus). It drops every call
   and warns once per copy, until a bus is installed.
-- **The first install wins.** `/quickstart`, `quickstart.js` and `installNFBus` only fill an empty
+- **The first install wins.** `/install`, `install.js` and `installNFBus` only fill an empty
   slot; a second install, from any copy or version, keeps the bus that is there. A host that wants a
   known version installs first.
 - **A value that is not a bus is used as is** and fails on use, typically with a `TypeError`. Nothing
@@ -48,11 +48,11 @@ either needs a new wire name:
 Node, Deno, Bun, workers and iframes:
 
 - **An iframe** has its own global object, so its own bus. Bridge it with a
-  [transport](./api.md#transports) if needed; [`broadcastTransport`](./cross-tab.md) also reaches
+  [transport](./api.md#transports) if needed; [`broadcastChannelTransport`](./cross-tab.md) also reaches
   same-origin iframes.
-- **One user per process** (a CLI, a worker, Electron's main process): import `/quickstart` at
+- **One user per process** (a CLI, a worker, Electron's main process): import `/install` at
   startup. Never on a server that serves many users.
-- **Server-side rendering**: never import `/quickstart` in server code. Install the request-scoped bus
+- **Server-side rendering**: never import `/install` in server code. Install the request-scoped bus
   from [the SSR recipe](./recipes.md#server-side-rendering) at boot. Without it, the bus stays inert
   on the server, but only when every copy is this release or newer.
 - **Copies older than this release** (4.0.0-next.0 and next.1) still install a bus on first use
@@ -62,8 +62,8 @@ Node, Deno, Bun, workers and iframes:
 ## Upgrading from 4.0.0-next.x
 
 Copies from next.0 and next.1 install a bus on first use; this release installs only through
-`/quickstart`, `quickstart.js` or `installNFBus`. Upgrade the host first and add the `/quickstart`
-import (or `quickstart.js`) there, before you upgrade any remote. A remote on this release next to a
+`/install`, `install.js` or `installNFBus`. Upgrade the host first and add the `/install`
+import (or `install.js`) there, before you upgrade any remote. A remote on this release next to a
 next.x host loses every subscription it makes before the host's first bus call, since those go to the
 inert bus. If native federation shares this release with the host as well, a host without the
-`/quickstart` import installs nothing, and the whole page stays inert.
+`/install` import installs nothing, and the whole page stays inert.

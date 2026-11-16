@@ -5,13 +5,13 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import * as main from '@softarc/native-federation-communication';
-import * as crossTab from '@softarc/native-federation-communication/transport/cross-tab';
+import * as broadcastChannel from '@softarc/native-federation-communication/transport/broadcast-channel';
 import * as domain from '@softarc/native-federation-communication/domain';
-import * as internal from '@softarc/native-federation-communication/internal';
+import * as setup from '@softarc/native-federation-communication/setup';
 
 const NAME = '@softarc/native-federation-communication';
 const { bus } = main;
-const { createBus } = internal;
+const { createBus } = setup;
 
 const manifestPath = createRequire(import.meta.url).resolve(`${NAME}/package.json`);
 const manifest = createRequire(import.meta.url)(manifestPath);
@@ -24,9 +24,9 @@ assert.deepEqual(
   [
     './types/index.d.ts',
     './types/domain.d.ts',
-    './types/internal.d.ts',
-    './types/quickstart.d.ts',
-    './types/transport/cross-tab.d.ts',
+    './types/setup.d.ts',
+    './types/install.d.ts',
+    './types/transport/broadcast-channel.d.ts',
   ]
 );
 for (const file of typesFiles) {
@@ -34,8 +34,8 @@ for (const file of typesFiles) {
 }
 
 assert.deepEqual(Object.keys(main).sort(), ['bus', 'connect']);
-assert.deepEqual(Object.keys(internal).sort(), ['busFrom', 'createBus', 'getNFBus', 'installNFBus']);
-assert.deepEqual(Object.keys(crossTab), ['broadcastTransport']);
+assert.deepEqual(Object.keys(setup).sort(), ['busFrom', 'createBus', 'getNFBus', 'installNFBus']);
+assert.deepEqual(Object.keys(broadcastChannel), ['broadcastChannelTransport']);
 // ./domain holds types only, so at runtime it is an empty module
 assert.deepEqual(Object.keys(domain), []);
 
@@ -58,22 +58,22 @@ assert.equal(warnings.length, 1);
 
 // busFrom serves a bus from any source, and the global stays empty.
 const scoped = createBus();
-const facade = internal.busFrom(() => scoped);
+const facade = setup.busFrom(() => scoped);
 facade.emit('cart:count', 4);
 assert.equal(scoped.peek('cart:count'), 4);
 assert.equal(globalThis.__NF_BUS__, undefined);
 
-// ./quickstart installs a bus, under node too, exports nothing, and `bus` follows it.
-const quickstart = await import(`${NAME}/quickstart`);
-assert.deepEqual(Object.keys(quickstart), []);
+// ./install installs a bus, under node too, exports nothing, and `bus` follows it.
+const install = await import(`${NAME}/install`);
+assert.deepEqual(Object.keys(install), []);
 const installed = globalThis.__NF_BUS__;
 assert.equal(installed?.protocol, 1);
-assert.equal(internal.getNFBus(), installed);
+assert.equal(setup.getNFBus(), installed);
 bus.emit('cart:count', 3);
 assert.equal(installed.peek('cart:count'), 3);
 
 // The installed bus can be tapped, so connect opens a channel; close lets node exit.
-const connection = main.connect(crossTab.broadcastTransport('consumer'), ['cart:count']);
+const connection = main.connect(broadcastChannel.broadcastChannelTransport('consumer'), ['cart:count']);
 assert.equal(warnings.length, 1);
 connection.close();
 

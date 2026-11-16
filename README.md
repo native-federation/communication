@@ -17,7 +17,7 @@ The host installs the bus once, before anything uses it: as the first import of 
 `initFederation` loads (often `bootstrap.ts`), since shared packages resolve only after it:
 
 ```js
-import '@softarc/native-federation-communication/quickstart';
+import '@softarc/native-federation-communication/install';
 ```
 
 Everyone, the host and every remote, then imports `bus`:
@@ -35,7 +35,7 @@ const off = bus.on('cart:changed', ({ count }) => (badge.textContent = String(co
 bus.emit('ui:toast', { text: 'Added to cart' }, { retain: false });
 ```
 
-No build step? Load `quickstart.js` with a [script tag](https://github.com/native-federation/communication/blob/main/docs/getting-started.md#with-a-script-tag).
+No build step? Load `install.js` with a [script tag](https://github.com/native-federation/communication/blob/main/docs/getting-started.md#with-a-script-tag).
 
 Keep communication rare: navigation state belongs in the URL, parent-to-child data in attributes.
 

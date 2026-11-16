@@ -24,7 +24,7 @@ bus.emit('cart:changed', { cnt: 3 }); // error
 bus.on('cart:changed', ({ count }) => {}); // count: number
 ```
 
-Types apply to `bus` and to `createBus()` from `/internal`. `globalThis.__NF_BUS__` stays untyped,
+Types apply to `bus` and to `createBus()` from `/setup`. `globalThis.__NF_BUS__` stays untyped,
 because every copy of the package declares it.
 
 ## In JavaScript

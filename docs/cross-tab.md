@@ -2,14 +2,14 @@
 
 # Cross-tab
 
-`broadcastTransport` is a [transport](./api.md#transports) that mirrors the listed channels into every
+`broadcastChannelTransport` is a [transport](./api.md#transports) that mirrors the listed channels into every
 other tab of the same origin:
 
 ```js
 import { connect } from '@softarc/native-federation-communication';
-import { broadcastTransport } from '@softarc/native-federation-communication/transport/cross-tab';
+import { broadcastChannelTransport } from '@softarc/native-federation-communication/transport/broadcast-channel';
 
-const connection = connect(broadcastTransport(), ['cart:changed', 'auth:user']);
+const connection = connect(broadcastChannelTransport(), ['cart:changed', 'auth:user']);
 ```
 
 ## Why BroadcastChannel
@@ -20,7 +20,7 @@ job. What crosses tabs is `BroadcastChannel`, so the transport uses it and no `C
 
 ## Connect once, in the host
 
-Connect after the bus is installed, such as after the `/quickstart` import: without an installed bus
+Connect after the bus is installed, such as after the `/install` import: without an installed bus
 `connect` warns and returns `undefined`. List the channels explicitly. Channels you don't list stay in
 the tab.
 
@@ -49,13 +49,13 @@ last-writer-wins.
 
 ## Copies
 
-Every copy's `broadcastTransport()` has the same name, so a second `connect` on the same bus returns
+Every copy's `broadcastChannelTransport()` has the same name, so a second `connect` on the same bus returns
 `undefined` and its channels are not bridged. List every channel in the host's one `connect`. If
 the host calls `close()`, nobody takes over; connect again.
 
 All tabs share one wire, `native-federation-communication`. A private bus from `createBus()` (in
-`/internal`) connected with `{ bus }` on that wire cross-talks with the page bus, so give it its own:
-`broadcastTransport('my-tests')`.
+`/setup`) connected with `{ bus }` on that wire cross-talks with the page bus, so give it its own:
+`broadcastChannelTransport('my-tests')`.
 
 One instance per connection: connecting an instance to a second bus throws (where
 `BroadcastChannel` exists). Give each bus its own instance.

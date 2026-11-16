@@ -1,6 +1,6 @@
-// connect, tap, ./internal and the ./transport/cross-tab subpath, imported by package name like an
+// connect, tap, ./setup and the ./transport/broadcast-channel subpath, imported by package name like an
 // app would.
-import '@softarc/native-federation-communication/quickstart';
+import '@softarc/native-federation-communication/install';
 import {
   bus,
   connect,
@@ -18,21 +18,21 @@ import {
   createBus,
   getNFBus,
   installNFBus,
-} from '@softarc/native-federation-communication/internal';
-import { broadcastTransport } from '@softarc/native-federation-communication/transport/cross-tab';
+} from '@softarc/native-federation-communication/setup';
+import { broadcastChannelTransport } from '@softarc/native-federation-communication/transport/broadcast-channel';
 
-export const tabs: Connection | undefined = connect(broadcastTransport(), ['cart:count']);
-connect(broadcastTransport('my-app'), ['cart:count'], { bus });
-connect(broadcastTransport(), ['cart:count'], { bus: createBus() });
-connect(broadcastTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
+export const tabs: Connection | undefined = connect(broadcastChannelTransport(), ['cart:count']);
+connect(broadcastChannelTransport('my-app'), ['cart:count'], { bus });
+connect(broadcastChannelTransport(), ['cart:count'], { bus: createBus() });
+connect(broadcastChannelTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
 
 // A custom location goes through busFrom; getNFBus and installNFBus only use the global slot.
 const frame = { __NF_BUS__: createBus() as NativeFederationBus | undefined };
 export const framed: Bus = busFrom(() => frame.__NF_BUS__);
-connect(broadcastTransport(), ['cart:count'], { bus: framed });
+connect(broadcastChannelTransport(), ['cart:count'], { bus: framed });
 export const installed: Bus = installNFBus(createBus());
 export const found: Bus | undefined = getNFBus();
-connect(broadcastTransport(), ['cart:count'], { bus: found });
+connect(broadcastChannelTransport(), ['cart:count'], { bus: found });
 // @ts-expect-error there is no custom location any more
 getNFBus({});
 // @ts-expect-error there is no custom location any more
@@ -40,11 +40,11 @@ installNFBus(createBus(), {});
 tabs?.replay();
 tabs?.close();
 // @ts-expect-error connect returns undefined when refused
-connect(broadcastTransport(), ['cart:count']).close();
+connect(broadcastChannelTransport(), ['cart:count']).close();
 // @ts-expect-error channels is a list, not a single name
-connect(broadcastTransport(), 'cart:count');
+connect(broadcastChannelTransport(), 'cart:count');
 // @ts-expect-error a wire is a string
-broadcastTransport(1);
+broadcastChannelTransport(1);
 
 // A transport of the app's own, typed through ./domain.
 export const custom: domain.Transport = {

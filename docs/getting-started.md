@@ -14,11 +14,11 @@ npm install @softarc/native-federation-communication
 
 The host installs the bus once, before any code uses it. Make it the first import of the module that
 `initFederation` loads, often `bootstrap.ts`: in a Native Federation host, shared packages such as
-this one resolve only after `initFederation`, so `main.ts` is too early. The `quickstart.js` script
+this one resolve only after `initFederation`, so `main.ts` is too early. The `install.js` script
 tag works anywhere.
 
 ```js
-import '@softarc/native-federation-communication/quickstart';
+import '@softarc/native-federation-communication/install';
 ```
 
 The host and every remote then use the bus:
@@ -28,22 +28,22 @@ import { bus } from '@softarc/native-federation-communication';
 ```
 
 Every remote may bundle its own copy; they all share the one bus at `globalThis.__NF_BUS__` (see
-[Multiple copies](./multiple-copies.md)). Importing `/quickstart` again, from any copy, keeps the bus
+[Multiple copies](./multiple-copies.md)). Importing `/install` again, from any copy, keeps the bus
 that is there. A remote that also runs on its own can import it in its standalone entry.
 
 ### With a script tag
 
-Load `quickstart.js` as a classic script, before any script that uses the bus:
+Load `install.js` as a classic script, before any script that uses the bus:
 
 ```html
 <script
-  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.2/quickstart.js"
+  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.2/install.js"
   integrity="sha384-HASH"
   crossorigin="anonymous"
 ></script>
 ```
 
-- Replace `HASH` with the output of `openssl dgst -sha384 -binary quickstart.js | openssl base64 -A`.
+- Replace `HASH` with the output of `openssl dgst -sha384 -binary install.js | openssl base64 -A`.
   Serving the file from your own host is better still.
 - Keep the exact version: a range such as `@4` never matches a prerelease.
 - The bus is then `globalThis.__NF_BUS__`, with the same methods as `bus`. Code that must survive a

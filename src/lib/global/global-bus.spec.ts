@@ -65,7 +65,7 @@ describe('the global bus', () => {
 
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0]?.[0]).toMatch(
-        /No bus is available here.*\/quickstart'.*native-federation-communication\/internal'/s
+        /No bus is available here.*\/install'.*native-federation-communication\/setup'/s
       );
 
       (await loadCopy()).bus.peek('a');

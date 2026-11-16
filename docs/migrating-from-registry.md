@@ -12,8 +12,8 @@ that keep their last value; a resource and a stream with the same name become on
 
 | Registry                                                        | Bus                                                                                                |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `<script src="…/init-registry.mjs">`                            | `<script src="…/quickstart.js">`, see [Getting started](./getting-started.md#with-a-script-tag)    |
-| `window.__NF_REGISTRY__ ??= createRegistry(options)()` in code  | `import '@softarc/native-federation-communication/quickstart'`, in the host only                   |
+| `<script src="…/init-registry.mjs">`                            | `<script src="…/install.js">`, see [Getting started](./getting-started.md#with-a-script-tag)       |
+| `window.__NF_REGISTRY__ ??= createRegistry(options)()` in code  | `import '@softarc/native-federation-communication/install'`, in the host only                      |
 | `declare global { interface Window { __NF_REGISTRY__ … } }`     | delete it: the package declares `__NF_BUS__`                                                       |
 | `window.__NF_REGISTRY__`                                        | `import { bus } from '@softarc/native-federation-communication'`, or `globalThis.__NF_BUS__`       |
 | `emit<Events['x']>('x', …)`, `on<Events['x']>(…)`               | `emit('x', …)`, `on('x', …)`, see [Typing](#typing)                                                |
@@ -29,9 +29,9 @@ that keep their last value; a resource and a stream with the same name become on
 | `data-max-streams`, `data-max-events`, `data-remove-percentage` | not needed: a channel keeps one value                                                              |
 | `{ data, timestamp }`                                           | put a timestamp in the value if a consumer needs one                                               |
 
-The host installs the bus once, with the `/quickstart` import or `quickstart.js`, before any code
+The host installs the bus once, with the `/install` import or `install.js`, before any code
 uses it: until then the bus drops every call and warns. A script that emits on a bus already on the
-page, such as the orchestrator's `orch.init-ready` announcement, needs `quickstart.js` loaded before
+page, such as the orchestrator's `orch.init-ready` announcement, needs `install.js` loaded before
 it.
 
 `register(name, () => fn)` published `fn`, because `register` called functions. Ported literally,
@@ -68,7 +68,7 @@ Drop the type arguments. Where you used `Events['x']` as a type, use `ChannelVal
 
 ## Pages with both
 
-`init-registry.mjs` and `quickstart.js` can run side by side, as separate buses. Move a channel's
+`init-registry.mjs` and `install.js` can run side by side, as separate buses. Move a channel's
 producer and consumers together, or emit on both meanwhile:
 
 ```js

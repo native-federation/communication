@@ -12,9 +12,9 @@
   "include": [
     "src/index.ts",
     "src/domain.ts",
-    "src/internal.ts",
-    "src/quickstart.ts",
-    "src/transport/cross-tab.ts",
+    "src/setup.ts",
+    "src/install.ts",
+    "src/transport/broadcast-channel.ts",
     "src/lib/**/*"
   ],
   "exclude": ["src/**/*.spec.ts"]

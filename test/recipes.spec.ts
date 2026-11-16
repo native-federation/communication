@@ -196,7 +196,7 @@ describe('the request bus recipe', () => {
   // requests, so the recipe refuses to start on top of it.
   it('throws when another bus is already installed, and leaves that bus in place', async () => {
     const { installRequestBus } = await recipe('request-bus');
-    const { createBus, installNFBus } = await import(`${pkg}/internal`);
+    const { createBus, installNFBus } = await import(`${pkg}/setup`);
     const first = installNFBus(createBus());
 
     expect(() => installRequestBus()).toThrow(/already holds another bus/);
@@ -232,7 +232,7 @@ describe('the request bus recipe', () => {
     const { installRequestBus, withRequestBus } = await recipe('request-bus');
     installRequestBus();
     const { bus } = await import(pkg);
-    const { createBus } = await import(`${pkg}/internal`);
+    const { createBus } = await import(`${pkg}/setup`);
 
     withRequestBus(() => {
       bus.emit('recipe:user', 'a');

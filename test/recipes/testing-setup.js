@@ -1,4 +1,4 @@
-import { createBus } from '@softarc/native-federation-communication/internal';
+import { createBus } from '@softarc/native-federation-communication/setup';
 
 beforeEach(() => {
   vi.stubGlobal('__NF_BUS__', createBus());

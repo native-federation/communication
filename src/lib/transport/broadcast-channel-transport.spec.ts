@@ -3,7 +3,7 @@ import { connect } from '../connect/connect.js';
 import type { Bus, Envelope } from '../domain/bus/bus.contract.js';
 import type { Connection, Transport } from '../domain/connect/connect.contract.js';
 import { noop } from '../bus/arguments.js';
-import { broadcastTransport } from './broadcast-transport.js';
+import { broadcastChannelTransport } from './broadcast-channel-transport.js';
 
 const Real = globalThis.BroadcastChannel;
 
@@ -34,7 +34,7 @@ const fresh = (): string => `test:wire-${++wires}`;
 type Side = { transport: Transport; received: unknown[]; unlisten: () => void };
 
 function listening(wire: string): Side {
-  const transport = broadcastTransport(wire);
+  const transport = broadcastChannelTransport(wire);
   const received: unknown[] = [];
   const unlisten = track(transport.listen(envelope => received.push(envelope)));
   return { transport, received, unlisten };
@@ -52,7 +52,7 @@ async function fence(from: Transport, to: Side): Promise<void> {
   to.received.splice(0, Infinity, ...rest);
 }
 
-describe('broadcastTransport', () => {
+describe('broadcastChannelTransport', () => {
   beforeEach(() => {
     vi.stubGlobal('BroadcastChannel', RecordingChannel);
   });
@@ -65,11 +65,11 @@ describe('broadcastTransport', () => {
 
   describe('name', () => {
     it('is broadcast: plus the default wire', () => {
-      expect(broadcastTransport().name).toBe('broadcast:native-federation-communication');
+      expect(broadcastChannelTransport().name).toBe('broadcast:native-federation-communication');
     });
 
     it('is broadcast: plus a given wire', () => {
-      expect(broadcastTransport('my-app').name).toBe('broadcast:my-app');
+      expect(broadcastChannelTransport('my-app').name).toBe('broadcast:my-app');
     });
   });
 
@@ -134,14 +134,14 @@ describe('broadcastTransport', () => {
 
   describe('opening lazily', () => {
     it('opens nothing until listen', () => {
-      broadcastTransport(fresh());
+      broadcastChannelTransport(fresh());
 
       expect(opened).toEqual([]);
     });
 
     it('sends nothing before listen', async () => {
       const wire = fresh();
-      const sender = broadcastTransport(wire);
+      const sender = broadcastChannelTransport(wire);
       const receiver = listening(wire);
 
       expect(() => sender.send({ channel: 'x', value: 'early', retain: true })).not.toThrow();
@@ -156,9 +156,9 @@ describe('broadcastTransport', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const bus = createBus();
       const wire = fresh();
-      track(connect(broadcastTransport(wire), ['x'], { bus })!.close);
+      track(connect(broadcastChannelTransport(wire), ['x'], { bus })!.close);
 
-      const duplicate = connect(broadcastTransport(wire), ['x'], { bus });
+      const duplicate = connect(broadcastChannelTransport(wire), ['x'], { bus });
 
       expect(duplicate).toBeUndefined();
       expect(opened).toHaveLength(1);
@@ -197,11 +197,11 @@ describe('broadcastTransport', () => {
   // send cannot tell two listens apart, so a second one would make the first side hear itself.
   describe('one instance listened twice', () => {
     const already = (wire: string): string =>
-      `[native-federation-communication] broadcastTransport('${wire}') is already listening; use one instance per connection.`;
+      `[native-federation-communication] broadcastChannelTransport('${wire}') is already listening; use one instance per connection.`;
 
     it('throws on the second listen, naming the wire, and the first side keeps working', async () => {
       const wire = fresh();
-      const transport = broadcastTransport(wire);
+      const transport = broadcastChannelTransport(wire);
       const first: Side = { transport, received: [], unlisten: noop };
       track(transport.listen(envelope => first.received.push(envelope)));
       const other = listening(wire);
@@ -217,20 +217,20 @@ describe('broadcastTransport', () => {
     it('throws when connected to a second bus, leaving that bus’s tap name free', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const wire = fresh();
-      const transport = broadcastTransport(wire);
+      const transport = broadcastChannelTransport(wire);
       track(connect(transport, ['x'], { bus: createBus() })!.close);
       const second = createBus();
 
       expect(() => connect(transport, ['x'], { bus: second })).toThrow(already(wire));
 
-      track(connect(broadcastTransport(wire), ['x'], { bus: second })!.close);
+      track(connect(broadcastChannelTransport(wire), ['x'], { bus: second })!.close);
       expect(warn).not.toHaveBeenCalled();
       expect(opened).toHaveLength(2);
     });
 
     it('can listen again after unlisten', async () => {
       const wire = fresh();
-      const transport = broadcastTransport(wire);
+      const transport = broadcastChannelTransport(wire);
       transport.listen(() => {})();
       const received: unknown[] = [];
 
@@ -245,7 +245,7 @@ describe('broadcastTransport', () => {
   describe('without BroadcastChannel', () => {
     it('listens and sends as no-ops', () => {
       vi.stubGlobal('BroadcastChannel', undefined);
-      const transport = broadcastTransport(fresh());
+      const transport = broadcastChannelTransport(fresh());
       const receive = vi.fn();
 
       const unlisten = transport.listen(receive);
@@ -260,7 +260,7 @@ describe('broadcastTransport', () => {
     it('makes connect a working no-op that keeps local delivery', () => {
       vi.stubGlobal('BroadcastChannel', undefined);
       const bus = createBus();
-      const connection = connect(broadcastTransport(fresh()), ['x'], { bus })!;
+      const connection = connect(broadcastChannelTransport(fresh()), ['x'], { bus })!;
       const received: unknown[] = [];
       bus.on('x', value => received.push(value));
 
@@ -276,7 +276,7 @@ describe('broadcastTransport', () => {
   describe('through connect', () => {
     function tab(wire: string, channels: string[]): { bus: Bus; connection: Connection } {
       const bus = createBus();
-      const connection = connect(broadcastTransport(wire), channels, { bus })!;
+      const connection = connect(broadcastChannelTransport(wire), channels, { bus })!;
       track(connection.close);
       return { bus, connection };
     }

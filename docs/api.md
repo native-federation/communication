@@ -6,14 +6,14 @@
 
 Every subpath is under `@softarc/native-federation-communication`:
 
-| Import                 | Exports                                            | For                                                      |
-| ---------------------- | -------------------------------------------------- | -------------------------------------------------------- |
-| the package            | `bus`, `connect`, every type                       | Everyone                                                 |
-| `/quickstart`          | nothing: it installs a bus                         | The host, once                                           |
-| `/internal`            | `createBus`, `busFrom`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
-| `/domain`              | every type, and the `__NF_BUS__` global            | Types without runtime code                               |
-| `/transport/cross-tab` | `broadcastTransport`                               | [Cross-tab](./cross-tab.md)                              |
-| `/quickstart.js`       | a classic script that installs a bus               | The [script tag](./getting-started.md#with-a-script-tag) |
+| Import                         | Exports                                            | For                                                      |
+| ------------------------------ | -------------------------------------------------- | -------------------------------------------------------- |
+| the package                    | `bus`, `connect`, every type                       | Everyone                                                 |
+| `/install`                     | nothing: it installs a bus                         | The host, once                                           |
+| `/setup`                       | `createBus`, `busFrom`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
+| `/domain`                      | every type, and the `__NF_BUS__` global            | Types without runtime code                               |
+| `/transport/broadcast-channel` | `broadcastChannelTransport`                        | [Cross-tab](./cross-tab.md)                              |
+| `/install.js`                  | a classic script that installs a bus               | The [script tag](./getting-started.md#with-a-script-tag) |
 
 ```js
 import { bus, connect } from '@softarc/native-federation-communication';
@@ -22,7 +22,7 @@ import {
   createBus,
   getNFBus,
   installNFBus,
-} from '@softarc/native-federation-communication/internal';
+} from '@softarc/native-federation-communication/setup';
 ```
 
 - `bus` serves whatever is installed at `globalThis.__NF_BUS__`, looked up on every call, so every
@@ -38,7 +38,7 @@ import {
   or the [inert](#without-an-installed-bus) bus when that is `undefined`. `protocol`, `version` and
   `tap` are read the same way. `bus` is `busFrom(getNFBus)`.
 
-`/quickstart` is `installNFBus(createBus())`. A bus kept anywhere else, such as in an iframe or a DI
+`/install` is `installNFBus(createBus())`. A bus kept anywhere else, such as in an iframe or a DI
 container, goes through `busFrom`:
 
 ```js
@@ -160,7 +160,7 @@ connection?.close(); // stop both directions; safe to call twice
 ### Transports
 
 A transport carries [envelopes](#tapname-observer) to the other side.
-[`broadcastTransport`](./cross-tab.md) is built in; [React Native](./recipes.md#react-native-and-webview)
+[`broadcastChannelTransport`](./cross-tab.md) is built in; [React Native](./recipes.md#react-native-and-webview)
 shows one you write yourself.
 
 ```ts
@@ -198,8 +198,8 @@ delivers nothing, `on` returns an `off` that does nothing, `peek` returns `undef
 
 ```text
 [native-federation-communication] No bus is available here, so this call is dropped. Install one
-with '@softarc/native-federation-communication/quickstart' or via
-'@softarc/native-federation-communication/internal'.
+with '@softarc/native-federation-communication/install' or via
+'@softarc/native-federation-communication/setup'.
 ```
 
 `bus` serves an installed bus from the next call on; listeners added to the inert bus stay lost.

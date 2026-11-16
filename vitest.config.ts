@@ -42,9 +42,9 @@ export default defineConfig({
           // The recipes import the package by name, as the docs show; they run against the build.
           // Subpaths first: the bare name would otherwise match them as a prefix.
           alias: {
-            '@softarc/native-federation-communication/internal': resolve(
+            '@softarc/native-federation-communication/setup': resolve(
               __dirname,
-              'test/.dist/fesm2022/@softarc/native-federation-communication-internal.mjs'
+              'test/.dist/fesm2022/@softarc/native-federation-communication-setup.mjs'
             ),
             '@softarc/native-federation-communication': resolve(
               __dirname,
