@@ -80,12 +80,6 @@ const withoutTap = (): NativeFederationBus =>
     peek: vi.fn(),
   });
 
-// The warn-once state lives in the module, so warning specs load a fresh copy.
-async function freshConnect(): Promise<typeof connect> {
-  vi.resetModules();
-  return (await import('./connect.js')).connect;
-}
-
 describe('connect', () => {
   let warn: ReturnType<typeof vi.spyOn>;
 
@@ -162,9 +156,9 @@ describe('connect', () => {
     });
 
     // Node has no window, so the page bus is the inert one, which has no tap.
-    it('is refused on the inert bus outside a single-user realm', async () => {
+    it('is refused on the inert bus outside a single-user realm', () => {
       const transport = endpoint();
-      const connection = (await freshConnect())(transport, ['a']);
+      const connection = connect(transport, ['a']);
 
       expect(connection).toBeUndefined();
       expect(transport.listen).not.toHaveBeenCalled();
@@ -173,17 +167,16 @@ describe('connect', () => {
   });
 
   describe('a bus without tap', () => {
-    it('warns once per module and returns undefined without listening', async () => {
-      const fresh = await freshConnect();
+    it('warns on each refusal and returns undefined without listening', () => {
       const bus = withoutTap();
       const first = endpoint('first');
       const second = endpoint('second');
 
-      const connections = [fresh(first, ['a'], { bus }), fresh(second, ['a'], { bus })];
+      const connections = [connect(first, ['a'], { bus }), connect(second, ['a'], { bus })];
       first.inject({ channel: 'a', value: 1, retain: true });
 
       expect(connections).toEqual([undefined, undefined]);
-      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(2);
       expect(warn.mock.calls[0]?.[0]).toMatch(/^\[native-federation-communication\] /);
       expect(first.listen).not.toHaveBeenCalled();
       expect(second.listen).not.toHaveBeenCalled();
@@ -191,13 +184,6 @@ describe('connect', () => {
       expect(first.unlistens).toBe(0);
       expect(bus.emit).not.toHaveBeenCalled();
       expect(bus.on).not.toHaveBeenCalled();
-    });
-
-    it('warns again from another copy of the module', async () => {
-      (await freshConnect())(endpoint(), ['a'], { bus: withoutTap() });
-      (await freshConnect())(endpoint(), ['a'], { bus: withoutTap() });
-
-      expect(warn).toHaveBeenCalledTimes(2);
     });
   });
 

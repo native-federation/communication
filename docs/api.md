@@ -102,7 +102,7 @@ connection?.close(); // stop both directions; safe to call twice
   channel is emitted on this side and not sent back. Other channels and anything that is not an
   envelope are ignored.
 - `{ bus }` connects a bus from `createBus()` instead of the page bus.
-- `connect` returns `undefined` when refused: when the bus has no `tap` (it then warns once), or when
+- `connect` returns `undefined` when refused: when the bus has no `tap` (it then warns), or when
   its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.
 - A channel that is not a string, or a transport without a string `name` or a `listen` function,

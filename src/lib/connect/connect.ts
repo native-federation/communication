@@ -3,18 +3,6 @@ import type { Connection, ConnectOptions, Transport } from '../domain/connect/co
 import { assertChannel, noop } from '../bus/arguments.js';
 import { getGlobalBus } from '../global/global-bus.js';
 
-let warnedNoTap = false;
-
-function refuseNoTap(): undefined {
-  if (!warnedNoTap) {
-    warnedNoTap = true;
-    console.warn(
-      '[native-federation-communication] This bus cannot connect transports: an older copy installed ' +
-        'it, or this is not a single-user realm (a browser page or React Native).'
-    );
-  }
-}
-
 function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
   let unlisten: () => void;
   try {
@@ -46,7 +34,13 @@ export function connect(
   channels.forEach(assertChannel);
   const listed = new Set<string>(channels);
   const bus = options?.bus ?? getGlobalBus();
-  if (!bus.tap) return refuseNoTap();
+  if (!bus.tap) {
+    console.warn(
+      '[native-federation-communication] This bus cannot connect transports: an older copy installed ' +
+        'it, or this is not a single-user realm (a browser page or React Native).'
+    );
+    return undefined;
+  }
   const tap = bus.tap(transport.name, envelope => {
     if (listed.has(envelope.channel)) transport.send(envelope);
   });
