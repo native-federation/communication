@@ -169,15 +169,17 @@ federated host, its `bootstrap.ts`), and call `installRequestBus()` from the ser
 ## React Native and WebView
 
 React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
-[`connectTransport`](./api.md#connecttransporttransport-channels-options) and one [transport](./api.md#transports) per
-side. Each side installs its bus once, first thing in its entry (the app's `index.js`; in a federated
-page, the module `initFederation` loads), with `import '@softarc/native-federation-communication/install';`, and imports `bus` and
-`connectTransport` from the main entry. `./transport/broadcast-channel` isn't needed, and Metro resolves the package's
-`exports` by default from React Native 0.79.
+[`connectTransport`](./api.md#connecttransporttransport-channels-options) and one
+[transport](./api.md#transports) per side. Each side installs its bus once, first thing in its entry
+(the app's `index.js`; in a federated page, the module `initFederation` loads), with
+`import '@softarc/native-federation-communication/install';`, and imports `bus` and
+`connectTransport` from the main entry. `/transport/broadcast-channel` isn't needed, and Metro
+resolves the package's `exports` by default from React Native 0.79.
 
 The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
-receives through a global that the app calls. `connectTransport` calls `listen` once it is connected, so that is
-where the page tells the app it is ready:
+receives through a global of its own that the app calls. `connectTransport` calls `listen` once it
+is connected, so that is where the page tells the app it is ready, with a message of its own that is
+not an envelope:
 
 ```js
 import { connectTransport } from '@softarc/native-federation-communication';
@@ -255,8 +257,9 @@ export function Shop() {
 ```
 
 - Values cross as JSON: functions and `undefined` fields are dropped, a `Date` arrives as a string.
-- A loaded or reloaded page starts empty, so the app replays its retained values when the page posts
-  `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated page often connects after its load event.
+- A loaded or reloaded page starts empty, so the app sends its retained values with
+  `replayRetained()` when the page posts `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated
+  page often connects after its load event.
 - Give each `WebView` its own transport name, since a bus connects a name once.
 - The injected script ends with `true;`, as react-native-webview asks.
 

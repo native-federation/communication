@@ -53,9 +53,9 @@ A remote without a build step can still import `bus` by name when native federat
 
 ### Without an installed bus
 
-`bus` works before a bus is installed, but drops every call and warns, once per copy, that no bus is
-installed. It uses the installed bus from the next call on, so values emitted before that are lost.
-Install it first.
+`bus` works before a bus is installed, but drops every call and warns once per copy, naming the first
+dropped call. It uses the installed bus from the next call on, so values emitted before that are lost,
+and so are listeners added before it. Install it first, in the host.
 
 ## State
 
@@ -72,8 +72,9 @@ off(); // when the remote is torn down
 
 ## Commands
 
-A command should happen once, now, such as showing a toast. Emit it with `{ retain: false }`, through
-one helper per channel, so no call site can forget the option:
+A command should happen once, now, such as showing a toast. Emit it with `{ retain: false }`, which
+also clears the channel's retained value, through one helper per channel, so no call site can forget
+the option:
 
 ```js
 // toast.js: the only place that emits ui:toast

@@ -25,7 +25,8 @@ bus.on('cart:changed', ({ count }) => {}); // count: number
 ```
 
 Types apply to `bus` and to `createBus()` from `/setup`. `globalThis.__NF_BUS__` stays untyped,
-because every copy of the package declares it.
+because every copy of the package declares it: `Bus` is the typed view, `NativeFederationBus` the
+untyped shape at `__NF_BUS__`. Write code against `Bus`.
 
 ## In JavaScript
 
@@ -37,8 +38,9 @@ value type as `import('@softarc/native-federation-communication').ChannelValue<'
 
 - **A misspelt name is just another channel.** It compiles, with an `unknown` value. Export the names as
   constants from your contracts module.
-- **Augment the package name, never a subpath such as `/domain`.** Mixing the two in one app can
-  silently drop declarations.
+- **Augment the package name, never a subpath such as `/domain`.** `/domain` is for contracts
+  packages that need the types without runtime code; it is a second module, so mixing the two in one
+  app can silently drop declarations.
 - **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it, or cast it
   where you can see it: `bus.peek('legacy:cart') as Cart | undefined`.
 - **A union of names takes a union of values.** With `name: 'cart:changed' | 'ui:toast'`,

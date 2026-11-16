@@ -14,8 +14,8 @@ whatever is there, in any runtime, whichever copy installed it. There is no priv
 - **Nothing is installed**: `bus` is [inert](./api.md#without-an-installed-bus). It drops every call
   and warns once per copy, until a bus is installed.
 - **The first install wins.** `/install`, `install.js` and `installNFBus` only fill an empty
-  slot; a second install, from any copy or version, keeps the bus that is there. A host that wants a
-  known version installs first.
+  slot; a second install, from any copy or version, keeps the bus that is there. `installNFBus`
+  returns that bus, so compare it with yours. A host that wants a known version installs first.
 - **A value that is not a bus is used as is** and fails on use, typically with a `TypeError`. Nothing
   checks it. Fix the page.
 
@@ -34,7 +34,8 @@ The frozen object in `__NF_BUS__` is the contract between old and new copies:
 - A breaking change gets a new global name.
 
 `tap` is such a member: a copy calls `bus.tap?.(…)`, and
-[`connectTransport`](./api.md#connecttransporttransport-channels-options) warns and does nothing on a bus without it.
+[`connectTransport`](./api.md#connecttransporttransport-channels-options) warns and does nothing on a
+bus without it.
 Two more contracts are shared by copies of the [cross-tab](./cross-tab.md) transport, and changing
 either needs a new wire name:
 

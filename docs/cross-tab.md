@@ -2,8 +2,8 @@
 
 # Cross-tab
 
-`broadcastChannelTransport` is a [transport](./api.md#transports) that mirrors the listed channels into every
-other tab of the same origin:
+`broadcastChannelTransport` is a [transport](./api.md#transports) that mirrors the listed channels
+into every other tab of the same origin:
 
 ```js
 import { connectTransport } from '@softarc/native-federation-communication';
@@ -21,8 +21,8 @@ job. What crosses tabs is `BroadcastChannel`, so the transport uses it and no `C
 ## Connect once, in the host
 
 Connect after the bus is installed, such as after the `/install` import: without an installed bus
-`connectTransport` warns and returns `undefined`. List the channels explicitly. Channels you don't list stay in
-the tab.
+`connectTransport` warns and returns `undefined`. List the channels explicitly. Channels you don't
+list stay in the tab.
 
 Sync source channels, not the ones derived from them. If a listener on `cart:changed` emits
 `cart:count` and both are synced, every tab gets `cart:count` twice: once from its own listener and
@@ -43,15 +43,17 @@ and `{ retain: false }` clears the other tab's retained value.
 ## Live only
 
 A new tab gets nothing until the next emit; read the initial state from the server or the URL.
-`connection?.replayRetained()` only pushes this tab's retained values to the others, overwriting theirs. Emits
-from two tabs at the same moment may leave the tabs with different values; there is no
-last-writer-wins.
+`connection?.replayRetained()` only pushes this tab's retained values, at most one per channel, to
+the others, overwriting theirs; it never asks them for theirs. Emits from two tabs at the same moment
+may leave the tabs with different values; there is no last-writer-wins.
 
 ## Copies
 
-Every copy's `broadcastChannelTransport()` has the same name, so a second `connectTransport` on the same bus warns, returns
-`undefined` and its channels are not bridged. List every channel in the host's one `connectTransport`. If
-the host calls `close()`, nobody takes over; connect again.
+Every copy's `broadcastChannelTransport()` has the same name,
+`broadcast:native-federation-communication/1`, so a second `connectTransport` on the same bus warns
+that the name is already taken, returns `undefined`, and its channels are not bridged. List every
+channel in the host's one `connectTransport`. If the host calls `close()`, nobody takes over; connect
+again.
 
 All tabs share one wire, `native-federation-communication/1`. A private bus from `createBus()` (in
 `/setup`) connected with `{ bus }` on that wire cross-talks with the page bus, so give it its own:
