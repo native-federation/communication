@@ -95,5 +95,7 @@ export const bus: Bus = Object.freeze({
   emit: (channel, value, options) => getGlobalBus().emit(channel, value, options),
   on: (channel, listener, options) => getGlobalBus().on(channel, listener, options),
   peek: channel => getGlobalBus().peek(channel),
-  tap: (name, observer) => getGlobalBus().tap?.(name, observer),
+  get tap() {
+    return getGlobalBus().tap;
+  },
 } satisfies Bus);

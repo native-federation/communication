@@ -78,7 +78,18 @@ describe('the page bus without window', () => {
     const { bus } = await loadCopy();
 
     expect(bus.tap?.('t', () => {})).toBeUndefined();
+    expect(bus.tap).toBeUndefined();
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('refuses to connect a transport to the inert bus', async () => {
+    const { bus, connect } = await loadCopy();
+    const transport = { name: 't', send: vi.fn(), listen: vi.fn(() => () => {}) };
+
+    connect(transport, ['a'], { bus });
+
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/cannot connect transports/);
   });
 
   it('throws the same TypeErrors as a real bus', async () => {

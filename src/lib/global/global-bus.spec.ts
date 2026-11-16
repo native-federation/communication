@@ -187,6 +187,20 @@ describe('the page bus', () => {
       const { bus } = await loadCopy();
 
       expect(bus.tap?.('t', () => {})).toBeUndefined();
+      // Lets callers feature-detect with `bus.tap?.()` as the docs advise.
+      expect(bus.tap).toBeUndefined();
+    });
+
+    // The facade reads tap from the slot on every access, not once at import.
+    it('follows the bus currently serving the page', async () => {
+      globalThis.__NF_BUS__ = Object.freeze(createBusLike());
+      const { bus } = await loadCopy();
+      expect(bus.tap).toBeUndefined();
+
+      const tap = vi.fn();
+      globalThis.__NF_BUS__ = { ...createBusLike(), tap };
+
+      expect(bus.tap).toBe(tap);
     });
   });
 
