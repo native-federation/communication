@@ -173,6 +173,95 @@ server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share the request's
 bus, across `await` too. A call outside a request is checked, then dropped with one warning.
 
+## React Native and WebView
+
+React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
+[`connect`](./api.md#connecttransport-channels-options) and one [transport](./api.md#transports) per
+side. Both import the main entry: `./cross-tab` isn't needed, and Metro resolves the package's
+`exports` by default from React Native 0.79.
+
+The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
+receives through a global that the app calls. `connect` calls `listen` once it is connected, so that is
+where the page tells the app it is ready:
+
+```js
+import { connect } from '@softarc/native-federation-communication';
+
+const app = {
+  name: 'react-native',
+  send: envelope => window.ReactNativeWebView?.postMessage(JSON.stringify(envelope)),
+  listen: receive => {
+    window.__NF_FROM_APP__ = json => receive(JSON.parse(json));
+    window.ReactNativeWebView?.postMessage('nf:ready');
+    return () => delete window.__NF_FROM_APP__;
+  },
+};
+
+connect(app, ['cart:changed', 'auth:user']);
+```
+
+The app injects a call to that global, with the JSON encoded twice so it is a string literal, and gets
+the page's messages from `onMessage`:
+
+```jsx
+import { useEffect, useRef, useState } from 'react';
+import { WebView } from 'react-native-webview';
+import { connect } from '@softarc/native-federation-communication';
+
+function webViewTransport(name, webView, onReady) {
+  let receive = () => {};
+  return {
+    name,
+    send: envelope => {
+      const json = JSON.stringify(JSON.stringify(envelope));
+      webView.current?.injectJavaScript(`window.__NF_FROM_APP__?.(${json}); true;`);
+    },
+    listen: next => {
+      receive = next;
+      return () => (receive = () => {});
+    },
+    onMessage: ({ nativeEvent: { data } }) =>
+      data === 'nf:ready' ? onReady() : receive(parse(data)),
+  };
+}
+
+// Other libraries post on the same channel; connect ignores what is not an envelope.
+function parse(data) {
+  try {
+    return JSON.parse(data);
+  } catch {
+    return undefined;
+  }
+}
+
+export function Shop() {
+  const webView = useRef(null);
+  const connection = useRef(null);
+  const [transport] = useState(() =>
+    webViewTransport('webview:shop', webView, () => connection.current?.replay())
+  );
+
+  useEffect(() => {
+    connection.current = connect(transport, ['cart:changed', 'auth:user']);
+    return () => connection.current.close();
+  }, [transport]);
+
+  return (
+    <WebView
+      ref={webView}
+      source={{ uri: 'https://shop.example.com' }}
+      onMessage={transport.onMessage}
+    />
+  );
+}
+```
+
+- Values cross as JSON: functions and `undefined` fields are dropped, a `Date` arrives as a string.
+- A loaded or reloaded page starts empty, so the app replays its retained values when the page says
+  `nf:ready`. Not on `onLoadEnd`: a federated page often connects after its load event.
+- Give each `WebView` its own transport name, since a bus connects a name once.
+- The injected script ends with `true;`, as react-native-webview asks.
+
 ## Testing
 
 App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Replace it in a setup file;

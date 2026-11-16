@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import * as main from '@softarc/native-federation-communication';
+import * as crossTab from '@softarc/native-federation-communication/cross-tab';
 import * as domain from '@softarc/native-federation-communication/domain';
 
 const NAME = '@softarc/native-federation-communication';
@@ -24,7 +25,8 @@ for (const file of typesFiles) {
   assert.ok(existsSync(join(dirname(manifestPath), file)), `${file} is missing`);
 }
 
-assert.deepEqual(Object.keys(main).sort(), ['bus', 'createBus']);
+assert.deepEqual(Object.keys(main).sort(), ['bus', 'connect', 'createBus']);
+assert.deepEqual(Object.keys(crossTab), ['broadcastTransport']);
 // ./domain holds types only, so at runtime it is an empty module
 assert.deepEqual(Object.keys(domain), []);
 
@@ -52,5 +54,10 @@ const installed = globalThis.__NF_BUS__;
 assert.equal(installed?.protocol, 1);
 bus.emit('cart:count', 3);
 assert.equal(installed.peek('cart:count'), 3);
+
+// The installed bus can be tapped, so connect opens a channel; close lets node exit.
+const connection = main.connect(crossTab.broadcastTransport('consumer'), ['cart:count']);
+assert.equal(warnings.length, 1);
+connection.close();
 
 console.log('consumer ok');

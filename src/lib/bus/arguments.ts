@@ -15,3 +15,11 @@ export function assertListener(listener: unknown): void {
     );
   }
 }
+
+export function assertTapName(name: unknown): void {
+  if (typeof name !== 'string') {
+    throw new TypeError(
+      `[native-federation-communication] A tap name must be a string, got ${typeof name}.`
+    );
+  }
+}

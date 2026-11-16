@@ -6,5 +6,7 @@ export type {
   EmitOptions,
   Listener,
   OnOptions,
+  Tap,
+  TapObserver,
   Unsubscribe,
 } from './bus.contract.js';

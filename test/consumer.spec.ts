@@ -104,9 +104,9 @@ describe('the built package, consumed by name', () => {
   );
 
   it.each(Object.keys(RESOLUTIONS) as (keyof typeof RESOLUTIONS)[])(
-    'types the ./cross-tab subpath (%s resolution)',
+    'types connect, tap and the ./cross-tab subpath (%s resolution)',
     resolution => {
-      expect(typeErrors('cross-tab.ts', resolution)).toEqual([]);
+      expect(typeErrors('connect.ts', resolution)).toEqual([]);
     }
   );
 

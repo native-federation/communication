@@ -74,6 +74,13 @@ describe('the page bus without window', () => {
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
+  it('has no tap, and the facade returns undefined without a warning', async () => {
+    const { bus } = await loadCopy();
+
+    expect(bus.tap?.('t', () => {})).toBeUndefined();
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it('throws the same TypeErrors as a real bus', async () => {
     const { bus } = await loadCopy();
 

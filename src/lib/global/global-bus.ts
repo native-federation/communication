@@ -75,8 +75,8 @@ function install(): Bus {
   return isBus(slot) ? slot : foreignFallback();
 }
 
-// One realm per user: a browser page, not a server process (a shim may define `window` there).
-export const isPage = (): boolean => typeof window !== 'undefined' && window === globalThis;
+// A single-user realm (a browser page or React Native), not a server process (a shim may define `window` there).
+const isPage = (): boolean => typeof window !== 'undefined' && window === globalThis;
 
 export function getGlobalBus(): Bus {
   const slot: unknown = globalThis.__NF_BUS__;
@@ -95,4 +95,5 @@ export const bus: Bus = Object.freeze({
   emit: (channel, value, options) => getGlobalBus().emit(channel, value, options),
   on: (channel, listener, options) => getGlobalBus().on(channel, listener, options),
   peek: channel => getGlobalBus().peek(channel),
+  tap: (name, observer) => getGlobalBus().tap?.(name, observer),
 } satisfies Bus);

@@ -23,6 +23,7 @@ type Bus = {
     options?: { signal?: AbortSignal; replay?: boolean }
   ): () => void;
   peek(channel: string): unknown;
+  tap?(name: string, observer: TapObserver): Tap | undefined; // see tap below
 };
 ```
 
@@ -52,6 +53,84 @@ Subscribes `listener` and returns `off`, which unsubscribes it and is safe to ca
 
 Returns the retained value, or `undefined`. A retained `undefined` looks the same as none.
 
+## `tap(name, observer)`
+
+The extension point for bridges: `observer` sees every emit on every channel. To bridge channels, use
+[`connect`](#connecttransport-channels-options), which is built on it.
+
+```ts
+type TapObserver = (channel: string, value: unknown, emitted: { retain: boolean }) => void;
+type Tap = {
+  emit(channel: string, value: unknown, options?: { retain?: boolean }): void;
+  replay(): void;
+  close(): void;
+};
+```
+
+```js
+const tap = bus.tap?.('logger', (channel, value, { retain }) => log(channel, value, retain));
+```
+
+- `tap` is optional on the bus type, because an older copy may have installed the page bus without it.
+  Call it as `bus.tap?.(…)`.
+- It returns `undefined` if a tap with that `name` is open on this bus, and throws a `TypeError` if
+  `name` is not a string or `observer` not a function.
+- The observer runs after the emit's listeners, so it sees values in the order they do, with the emit's
+  `retain`. A throwing observer is reported like a throwing listener.
+- `tap.emit` is `bus.emit`, except that this tap's own observer doesn't see it. Emits that listeners
+  make in response are ordinary emits.
+- `tap.replay()` calls this observer once per channel with a retained value, a retained `undefined`
+  included, with `retain: true`.
+- `tap.close()` removes the tap and frees its name; `emit` and `replay` then do nothing. It is safe to
+  call twice.
+
+## `connect(transport, channels, options?)`
+
+Bridges the listed channels to a bus on the other side of a transport: another tab, a WebView, a
+native app.
+
+```js
+import { connect } from '@softarc/native-federation-communication';
+
+const connection = connect(transport, ['cart:changed', 'auth:user']);
+connection.replay(); // send this side's retained values, e.g. when the other side (re)loads
+connection.close(); // stop both directions; safe to call twice
+```
+
+- Every emit on a listed channel is sent, with its `retain`. Every envelope received for a listed
+  channel is emitted on this side and not sent back. Other channels and anything that is not an
+  envelope are ignored.
+- `{ bus }` connects a bus from `createBus()` instead of the page bus.
+- If the bus has no `tap`, or a transport with the same `name` is already connected to it, `connect`
+  warns and returns a connection that does nothing.
+- A `send` that throws is reported like a throwing listener. Local listeners have the value already.
+- A bad `transport` or channel throws a `TypeError`.
+
+### Transports
+
+A transport carries envelopes to the other side. [`broadcastTransport`](./cross-tab.md) is built in;
+[React Native](./recipes.md#react-native-and-webview) shows one you write yourself.
+
+```ts
+type Envelope = { channel: string; value: unknown; retain: boolean };
+type Transport = {
+  readonly name: string;
+  send(envelope: Envelope): void;
+  listen(receive: (envelope: Envelope) => void): () => void; // returns the cleanup
+};
+```
+
+`Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows four
+rules:
+
+- **`send` never delivers back to the sender's own side.** An echo would reach its listeners twice.
+- **Values must survive the encoding.** JSON drops functions and `undefined` fields; structured clone
+  turns class instances into plain objects and rejects functions.
+- **`name` is unique per bus.** A second `connect` with the same name is refused with a warning, which
+  keeps two copies of the same transport from bridging twice.
+- **Connections form a tree.** A value received over one connection is sent on by the bus's other
+  connections, so one bus can join tabs and a WebView. A cycle sends values around forever.
+
 ## Delivery rules
 
 - **Order.** Every listener sees values in emit order, across channels. A value emitted inside a
@@ -61,7 +140,7 @@ Returns the retained value, or `undefined`. A retained `undefined` looks the sam
 - **Isolation.** A throwing listener doesn't stop the producer or the other listeners. The error goes to
   `reportError` (in a browser, reported like an uncaught error), or to `console.error` without it.
 - **Same reference.** Listeners and `peek` get the producer's object. Nothing is copied or frozen,
-  except values received from another tab (see [cross-tab](./cross-tab.md)).
+  except values received through a [transport](#transports).
 - **No loop guard.** Two listeners that keep emitting to each other loop forever.
 
 To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the browser console.

@@ -15,7 +15,8 @@ case that applies:
    runtime, whichever copy installed it.
 2. **Something else is there**: leave it, warn once and use a private bus, which the rest of the page
    never hears. Fix the page.
-3. **A browser page** (`window` is the global object): install a new bus there.
+3. **A single-user realm**, a browser page or React Native (`window` is the global object): install a
+   new bus there.
 4. **Anywhere else**: use an inert bus that drops every call and warns once. See
    [Outside a browser](#outside-a-browser).
 
@@ -33,20 +34,22 @@ The frozen object in `__NF_BUS__` is the contract between old and new copies:
 - A member's type never changes, since TypeScript merges every copy's declaration of the global.
 - A breaking change gets a new global name.
 
-The [cross-tab](./cross-tab.md) plugin adds three contracts shared by its copies. Changing any of them
-needs a new wire name:
+`tap` is such a member: a copy calls `bus.tap?.(…)`, and
+[`connect`](./api.md#connecttransport-channels-options) warns and does nothing on a bus without it.
+Two more contracts are shared by copies of the [cross-tab](./cross-tab.md) transport, and changing
+either needs a new wire name:
 
-- the `BroadcastChannel` name `native-federation-communication:1`;
-- the message `{ channel: string, value: unknown, retain: boolean }`;
-- the claims registry `Symbol.for('native-federation-communication:1:claims')` on `globalThis`, a
-  `WeakMap` from bus to its set of bridged channels.
+- the `BroadcastChannel` name `native-federation-communication`, which also names the transport
+  `broadcast:native-federation-communication`, so a bus connects it once;
+- the envelope `{ channel: string, value: unknown, retain: boolean }`.
 
 ## Outside a browser
 
 Node, Deno, Bun, workers and iframes:
 
-- **An iframe** has its own global object, so its own bus. Bridge with `postMessage` if needed.
-  [`shareAcrossTabs`](./cross-tab.md) also reaches same-origin iframes.
+- **An iframe** has its own global object, so its own bus. Bridge it with a
+  [transport](./api.md#transports) if needed; [`broadcastTransport`](./cross-tab.md) also reaches
+  same-origin iframes.
 - **One user per process** (a CLI, a worker, Electron's main process): run
   `globalThis.__NF_BUS__ ??= createBus();` at startup. Never on a server that serves many users.
 - **Server-side rendering**: install the request-scoped bus from

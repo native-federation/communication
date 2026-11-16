@@ -2,6 +2,15 @@
 import { version } from '../../../package.json';
 import type { Bus } from '../domain/bus/bus.contract.js';
 
+// A protocol-1 bus as a copy built before tap existed installs it.
+const createBusLike = () => ({
+  protocol: 1,
+  version: '4.0.0',
+  emit: vi.fn(),
+  on: vi.fn(() => () => {}),
+  peek: vi.fn(),
+});
+
 // Each test gets a fresh copy of the module (and so a fresh private fallback) and an empty slot.
 async function loadCopy() {
   vi.resetModules();
@@ -142,6 +151,43 @@ describe('the page bus', () => {
     emit('a', 1);
 
     expect(received).toEqual([1]);
+  });
+
+  describe('tap', () => {
+    it('opens a tap on the bus serving the page', async () => {
+      const { bus } = await loadCopy();
+      const seen: unknown[] = [];
+
+      expect(bus.tap).toBeTypeOf('function');
+      const tap = bus.tap!('t', (channel, value) => seen.push([channel, value]));
+      globalThis.__NF_BUS__!.emit('a', 1);
+      tap?.emit('b', 2);
+      const received: unknown[] = [];
+      globalThis.__NF_BUS__!.on('b', value => received.push(value));
+
+      expect(seen).toEqual([['a', 1]]);
+      expect(received).toEqual([2]);
+      expect(globalThis.__NF_BUS__!.tap?.('t', () => {})).toBeUndefined();
+    });
+
+    it('passes name and observer through to a bus installed by another copy', async () => {
+      const tap = { emit: vi.fn(), replay: vi.fn(), close: vi.fn() };
+      const installed = { ...createBusLike(), tap: vi.fn(() => tap) };
+      globalThis.__NF_BUS__ = installed;
+      const { bus } = await loadCopy();
+      const observer = vi.fn();
+
+      expect(bus.tap?.('t', observer)).toBe(tap);
+      expect(installed.tap).toHaveBeenCalledWith('t', observer);
+    });
+
+    // An older copy installed the page bus before tap existed.
+    it('returns undefined when the bus serving the page has no tap', async () => {
+      globalThis.__NF_BUS__ = Object.freeze(createBusLike());
+      const { bus } = await loadCopy();
+
+      expect(bus.tap?.('t', () => {})).toBeUndefined();
+    });
   });
 
   it('reports the protocol and version of the bus serving the page', async () => {

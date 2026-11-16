@@ -2,23 +2,25 @@
 
 # Cross-tab
 
-`shareAcrossTabs` mirrors a list of channels into every other tab of the same origin.
+`broadcastTransport` is a [transport](./api.md#transports) that mirrors the listed channels into every
+other tab of the same origin:
 
 ```js
-import { shareAcrossTabs } from '@softarc/native-federation-communication/cross-tab';
+import { connect } from '@softarc/native-federation-communication';
+import { broadcastTransport } from '@softarc/native-federation-communication/cross-tab';
 
-const stop = shareAcrossTabs(['cart:changed', 'auth:user']);
+const connection = connect(broadcastTransport(), ['cart:changed', 'auth:user']);
 ```
 
 ## Why BroadcastChannel
 
 A `CustomEvent` dispatched on `window` or `document` runs its listeners inside that one document only.
 It never reaches another tab, popup or iframe, and inside one document `__NF_BUS__` already does that
-job. What crosses tabs is `BroadcastChannel`, so the plugin uses it and no `CustomEvent` at all.
+job. What crosses tabs is `BroadcastChannel`, so the transport uses it and no `CustomEvent` at all.
 
-## Install once, in the host
+## Connect once, in the host
 
-Call it once, in the host, with an explicit list of channels. Channels you don't list stay in the tab.
+List the channels explicitly. Channels you don't list stay in the tab.
 
 Sync source channels, not the ones derived from them. If a listener on `cart:changed` emits
 `cart:count` and both are synced, every tab gets `cart:count` twice: once from its own listener and
@@ -33,27 +35,32 @@ once from the other tab.
   throwing listener. The local listeners still get it, but the whole value is dropped for other tabs,
   so they keep their previous value.
 
-`retain` carries across: a retained emit is retained in the other tab, and `{ retain: false }` clears
-the other tab's retained value. `undefined` always arrives unretained.
+`retain` carries across: a retained emit is retained in the other tab, a retained `undefined` included,
+and `{ retain: false }` clears the other tab's retained value.
 
 ## Live only
 
-A new tab gets nothing until the next emit; read the initial state from the server or the URL. Emits
+A new tab gets nothing until the next emit; read the initial state from the server or the URL.
+`connection.replay()` only pushes this tab's retained values to the others, overwriting theirs. Emits
 from two tabs at the same moment may leave the tabs with different values; there is no
 last-writer-wins.
 
-## Copies and the `bus` option
+## Copies
 
-On a page, omit `bus`. Every copy then uses the page bus, so a channel listed by two copies is bridged
-once. If an owner calls `stop()`, nobody takes over its channels; install again.
+Every copy's `broadcastTransport()` has the same name, so a second `connect` on the same bus is refused
+with a warning and its channels are not bridged. List every channel in the host's one `connect`. If
+the host calls `close()`, nobody takes over; connect again.
 
-`bus` is for tests and isolated buses. A private `createBus()` bridged with the same channel names as
-the page bus cross-talks with it, since all tabs share one wire.
+All tabs share one wire, `native-federation-communication`. A private `createBus()` connected with
+`{ bus }` on that wire cross-talks with the page bus, so give it its own:
+`broadcastTransport('my-tests')`.
+
+A `broadcastTransport()` holds one channel, so pass a new one to each `connect`; a second connect of
+the same instance carries nothing.
 
 ## Scope
 
 - Same origin and same storage partition only. Same-origin iframes are included.
 - A tab kept in the back-forward cache is evicted when a message reaches it.
-- Without `BroadcastChannel`, or without a page (Node, SSR), `shareAcrossTabs` does nothing and returns
-  a no-op.
-- In tests, call `stop()`: an open channel keeps Node running.
+- Without `BroadcastChannel` (React Native, for one), the transport sends and receives nothing.
+- In tests, call `connection.close()`: an open channel keeps Node running.

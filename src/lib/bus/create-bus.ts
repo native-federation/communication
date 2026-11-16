@@ -6,6 +6,8 @@ import type {
   Unsubscribe,
 } from '../domain/bus/bus.contract.js';
 import { assertChannel, assertListener, noop } from './arguments.js';
+import { safely } from './safely.js';
+import { createTap, notifyTaps, type TapEntry, type Taps } from './tap.js';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
 export const VERSION = __NF_COMMUNICATION_VERSION__;
@@ -17,17 +19,8 @@ type Task = () => void;
 // undefined means the default (on); anything else goes through Boolean(), so `{ replay: 0 }` is off.
 const enabled = (option: unknown): boolean => option === undefined || Boolean(option);
 
-function report(error: unknown): void {
-  if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
-  else console.error(error);
-}
-
 function deliver(sub: Sub, value: unknown): void {
-  try {
-    sub.fn(value);
-  } catch (error) {
-    report(error);
-  }
+  safely(() => sub.fn(value));
 }
 
 // `subs` is the snapshot taken at emit time; `live` drops whoever unsubscribed since.
@@ -87,22 +80,42 @@ function subscribe(channel: Channel, sub: Sub, signal?: AbortSignal): Unsubscrib
   return off;
 }
 
+function retainedValues(channels: Map<string, Channel>): [string, unknown][] {
+  return [...channels]
+    .filter(([, channel]) => channel.has)
+    .map(([name, channel]) => [name, channel.value]);
+}
+
+type Core = { channels: Map<string, Channel>; taps: Taps; enqueue: (task: Task) => void };
+
+// Taps observe after the listeners, in the same task, so they see emits in delivery order.
+function emitter({ channels, taps, enqueue }: Core) {
+  return (source?: TapEntry) =>
+    (name: string, value: unknown, options?: EmitOptions): void => {
+      assertChannel(name);
+      const channel = open(channels, name);
+      const retain = enabled(options?.retain);
+      channel.has = retain;
+      channel.value = retain ? value : undefined;
+      const subs = [...channel.subs];
+      channel.dropIfEmpty();
+      enqueue(() => {
+        fanOut(subs, channel.subs, value);
+        notifyTaps(taps, source, [name, value, { retain }]);
+      });
+    };
+}
+
 export function createBus(): Bus {
   const channels = new Map<string, Channel>();
+  const taps: Taps = new Map();
   const { hold, enqueue } = createQueue();
+  const emitFrom = emitter({ channels, taps, enqueue });
+  const emit = emitFrom();
+  const tap = createTap({ taps, emitFrom, retained: () => retainedValues(channels), hold });
 
   const replayRetained = (channel: Channel, sub: Sub): void => {
     if (channel.has) hold(() => deliver(sub, channel.value));
-  };
-
-  const emit = (name: string, value: unknown, options?: EmitOptions): void => {
-    assertChannel(name);
-    const channel = open(channels, name);
-    channel.has = enabled(options?.retain);
-    channel.value = channel.has ? value : undefined;
-    const subs = [...channel.subs];
-    channel.dropIfEmpty();
-    enqueue(() => fanOut(subs, channel.subs, value));
   };
 
   const on = (name: string, fn: Listener<unknown>, options?: OnOptions): Unsubscribe => {
@@ -124,6 +137,13 @@ export function createBus(): Bus {
   };
 
   // The untyped implementation can't satisfy Bus's generic signatures; it is checked against the global shape.
-  const instance = { protocol: 1, version: VERSION, emit, on, peek } satisfies NativeFederationBus;
+  const instance = {
+    protocol: 1,
+    version: VERSION,
+    emit,
+    on,
+    peek,
+    tap,
+  } satisfies NativeFederationBus;
   return Object.freeze(instance) as Bus;
 }

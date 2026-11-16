@@ -1,1 +1,1 @@
-export { shareAcrossTabs, type CrossTabOptions } from './lib/cross-tab/share-across-tabs.js';
+export { broadcastTransport } from './lib/cross-tab/broadcast-transport.js';

@@ -5,6 +5,11 @@ import vm from 'node:vm';
 import { JSDOM, VirtualConsole } from 'jsdom';
 import { version } from '../package.json';
 import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
+import type {
+  Connection,
+  ConnectOptions,
+  Transport,
+} from '../src/lib/domain/connect/connect.contract.js';
 
 // These specs run against the published artifacts that global-setup.ts builds into test/.dist.
 const DIST = resolve(__dirname, '.dist');
@@ -12,7 +17,11 @@ const ESM = resolve(DIST, 'fesm2022/@softarc/native-federation-communication.mjs
 const SCRIPT = readFileSync(resolve(DIST, 'init-bus.js'), 'utf8');
 const CROSS_TAB_PATH = 'fesm2022/@softarc/native-federation-communication-cross-tab.mjs';
 
-type Copy = { bus: Bus; createBus: () => Bus };
+type Copy = {
+  bus: Bus;
+  createBus: () => Bus;
+  connect: (transport: Transport, channels: string[], options?: ConnectOptions) => Connection;
+};
 
 // A distinct query string makes vite load the same file as a separate module instance, which is
 // what two remotes shipping their own copy of the package look like on one page.
@@ -22,9 +31,7 @@ async function loadCopy(): Promise<Copy> {
   return import(/* @vite-ignore */ `${ESM}?copy=${copies}`);
 }
 
-type CrossTabCopy = {
-  shareAcrossTabs: (channels: string[], options?: { bus?: NativeFederationBus }) => () => void;
-};
+type CrossTabCopy = { broadcastTransport: (wire?: string) => Transport };
 
 async function loadCrossTab(): Promise<CrossTabCopy> {
   copies += 1;
@@ -205,9 +212,9 @@ describe('the published bundles', () => {
   });
 
   describe('the cross-tab subpath', () => {
-    // Counts the ports the copies open; messages still travel over the real BroadcastChannel.
+    // Counts the channels the copies open; messages still travel over the real BroadcastChannel.
     const ports: BroadcastChannel[] = [];
-    const stops: (() => void)[] = [];
+    const connections: Connection[] = [];
     class CountingChannel extends BroadcastChannel {
       constructor(name: string) {
         super(name);
@@ -221,7 +228,7 @@ describe('the published bundles', () => {
 
     // An open channel keeps the worker alive.
     afterEach(() => {
-      stops.splice(0).forEach(stop => stop());
+      connections.splice(0).forEach(connection => connection.close());
       ports.length = 0;
     });
 
@@ -241,29 +248,36 @@ describe('the published bundles', () => {
       );
     });
 
-    // Spec test 17: two copies installed on the page bus open one port between them; a private
-    // bus stands in for the other tab.
-    it('forwards each value once when two copies install it on the page', async () => {
+    // Two copies of the package each connect broadcastTransport() to the page bus: the transport
+    // name is the cross-copy contract that keeps the second from doubling every message. A
+    // private bus stands in for the other tab.
+    it('forwards each value once when two copies connect it on the page', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const channel = 'test:cross-tab';
-      const [one, two] = [await loadCrossTab(), await loadCrossTab()];
-      const { bus, createBus } = await loadCopy();
-      const otherTab = createBus();
+      const [one, two] = [await loadCopy(), await loadCopy()];
+      const [tabsOne, tabsTwo] = [await loadCrossTab(), await loadCrossTab()];
+      const otherTab = one.createBus();
       const here: unknown[] = [];
       const there: unknown[] = [];
-      bus.on(channel, value => here.push(value));
+      one.bus.on(channel, value => here.push(value));
       otherTab.on(channel, value => there.push(value));
 
-      stops.push(one.shareAcrossTabs([channel]), two.shareAcrossTabs([channel]));
-      stops.push(one.shareAcrossTabs([channel], { bus: otherTab }));
-      bus.emit(channel, 1);
-      bus.emit(channel, 2);
+      connections.push(
+        one.connect(tabsOne.broadcastTransport(), [channel]),
+        two.connect(tabsTwo.broadcastTransport(), [channel]),
+        one.connect(tabsOne.broadcastTransport(), [channel], { bus: otherTab })
+      );
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(/"broadcast:native-federation-communication"/);
+      two.bus.emit(channel, 1);
+      two.bus.emit(channel, 2);
       await vi.waitFor(() => expect(there).toEqual([1, 2]));
       otherTab.emit(channel, 3);
       await vi.waitFor(() => expect(here).toEqual([1, 2, 3]));
 
       // Fences in both directions: a duplicate or an echo sent earlier by the same port would
       // have arrived before them.
-      bus.emit(channel, 4);
+      one.bus.emit(channel, 4);
       await vi.waitFor(() => expect(there).toEqual([1, 2, 3, 4]));
       otherTab.emit(channel, 5);
       await vi.waitFor(() => expect(here).toEqual([1, 2, 3, 4, 5]));

@@ -215,3 +215,28 @@ describe('the request bus recipe', () => {
     expect(Object.isFrozen(globalThis.__NF_BUS__)).toBe(true);
   });
 });
+
+describe('the WebView page recipe', () => {
+  afterEach(() => {
+    delete (window as { __NF_FROM_APP__?: unknown }).__NF_FROM_APP__;
+  });
+
+  // The fixture connects at import, to whichever bus testing-setup installed for this test.
+  it('posts listed emits to the app and emits what the app injects, without echo', async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal('ReactNativeWebView', { postMessage });
+    await recipe('webview-page');
+    const fromApp = (window as { __NF_FROM_APP__?: (json: string) => void }).__NF_FROM_APP__;
+
+    globalThis.__NF_BUS__?.emit('cart:changed', { count: 1 });
+    globalThis.__NF_BUS__?.emit('recipe:unlisted', 1);
+    fromApp?.(JSON.stringify({ channel: 'auth:user', value: { id: 1 }, retain: true }));
+
+    // 'nf:ready' comes first: listen runs as soon as connect has claimed the transport name.
+    expect(postMessage.mock.calls).toEqual([
+      ['nf:ready'],
+      [JSON.stringify({ channel: 'cart:changed', value: { count: 1 }, retain: true })],
+    ]);
+    expect(globalThis.__NF_BUS__?.peek('auth:user')).toEqual({ id: 1 });
+  });
+});
