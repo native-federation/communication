@@ -1,5 +1,5 @@
 import { createBus } from '../bus/create-bus.js';
-import { connect } from '../connect/connect.js';
+import { connectTransport } from '../connect/connect.js';
 import type { TapObserver } from '../domain/bus/bus.contract.js';
 import { busFrom } from './bus-from.js';
 
@@ -88,7 +88,7 @@ describe('busFrom', () => {
     const transport = { name: 't', send: (e: unknown) => sent.push(e), listen: () => () => {} };
 
     bus.tap?.('logger', ({ value }) => seen.push(value));
-    const connection = connect(transport, ['a'], { bus });
+    const connection = connectTransport(transport, ['a'], { bus });
     bus.emit('a', 1);
     connection?.close();
 

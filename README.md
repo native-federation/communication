@@ -41,15 +41,15 @@ Keep communication rare: navigation state belongs in the URL, parent-to-child da
 
 ## Documentation
 
-| Guide                                                                                                                       | What it covers                                    |
-| --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| [Getting started](https://github.com/native-federation/communication/blob/main/docs/getting-started.md)                     | Install, the script tag, state and commands       |
-| [API](https://github.com/native-federation/communication/blob/main/docs/api.md)                                             | Entry points, `emit`, `on`, `peek`, pitfalls      |
-| [Typing](https://github.com/native-federation/communication/blob/main/docs/typing.md)                                       | Checked channels in TypeScript and JavaScript     |
-| [Recipes](https://github.com/native-federation/communication/blob/main/docs/recipes.md)                                     | Angular, React, RxJS, custom elements, SSR, tests |
-| [Multiple copies](https://github.com/native-federation/communication/blob/main/docs/multiple-copies.md)                     | One bus for all copies, the protocol, Node        |
-| [Cross-tab](https://github.com/native-federation/communication/blob/main/docs/cross-tab.md)                                 | Share channels between tabs with `connect`        |
-| [Migrating from the registry](https://github.com/native-federation/communication/blob/main/docs/migrating-from-registry.md) | Moving from the orchestrator's `__NF_REGISTRY__`  |
+| Guide                                                                                                                       | What it covers                                      |
+| --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| [Getting started](https://github.com/native-federation/communication/blob/main/docs/getting-started.md)                     | Install, the script tag, state and commands         |
+| [API](https://github.com/native-federation/communication/blob/main/docs/api.md)                                             | Entry points, `emit`, `on`, `peek`, pitfalls        |
+| [Typing](https://github.com/native-federation/communication/blob/main/docs/typing.md)                                       | Checked channels in TypeScript and JavaScript       |
+| [Recipes](https://github.com/native-federation/communication/blob/main/docs/recipes.md)                                     | Angular, React, RxJS, custom elements, SSR, tests   |
+| [Multiple copies](https://github.com/native-federation/communication/blob/main/docs/multiple-copies.md)                     | One bus for all copies, the protocol, Node          |
+| [Cross-tab](https://github.com/native-federation/communication/blob/main/docs/cross-tab.md)                                 | Share channels between tabs with `connectTransport` |
+| [Migrating from the registry](https://github.com/native-federation/communication/blob/main/docs/migrating-from-registry.md) | Moving from the orchestrator's `__NF_REGISTRY__`    |
 
 ## License
 

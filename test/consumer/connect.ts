@@ -1,12 +1,12 @@
-// connect, tap, ./setup and the ./transport/broadcast-channel subpath, imported by package name like an
+// connectTransport, tap, ./setup and the ./transport/broadcast-channel subpath, imported by package name like an
 // app would.
 import '@softarc/native-federation-communication/install';
 import {
   bus,
-  connect,
+  connectTransport,
   type Bus,
   type Connection,
-  type ConnectOptions,
+  type ConnectTransportOptions,
   type Envelope,
   type Tap,
   type TapObserver,
@@ -21,28 +21,28 @@ import {
 } from '@softarc/native-federation-communication/setup';
 import { broadcastChannelTransport } from '@softarc/native-federation-communication/transport/broadcast-channel';
 
-export const tabs: Connection | undefined = connect(broadcastChannelTransport(), ['cart:count']);
-connect(broadcastChannelTransport('my-app'), ['cart:count'], { bus });
-connect(broadcastChannelTransport(), ['cart:count'], { bus: createBus() });
-connect(broadcastChannelTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
+export const tabs: Connection | undefined = connectTransport(broadcastChannelTransport(), ['cart:count']);
+connectTransport(broadcastChannelTransport('my-app'), ['cart:count'], { bus });
+connectTransport(broadcastChannelTransport(), ['cart:count'], { bus: createBus() });
+connectTransport(broadcastChannelTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
 
 // A custom location goes through busFrom; getNFBus and installNFBus only use the global slot.
 const frame = { __NF_BUS__: createBus() as NativeFederationBus | undefined };
 export const framed: Bus = busFrom(() => frame.__NF_BUS__);
-connect(broadcastChannelTransport(), ['cart:count'], { bus: framed });
+connectTransport(broadcastChannelTransport(), ['cart:count'], { bus: framed });
 export const installed: Bus = installNFBus(createBus());
 export const found: Bus | undefined = getNFBus();
-connect(broadcastChannelTransport(), ['cart:count'], { bus: found });
+connectTransport(broadcastChannelTransport(), ['cart:count'], { bus: found });
 // @ts-expect-error there is no custom location any more
 getNFBus({});
 // @ts-expect-error there is no custom location any more
 installNFBus(createBus(), {});
 tabs?.replay();
 tabs?.close();
-// @ts-expect-error connect returns undefined when refused
-connect(broadcastChannelTransport(), ['cart:count']).close();
+// @ts-expect-error connectTransport returns undefined when refused
+connectTransport(broadcastChannelTransport(), ['cart:count']).close();
 // @ts-expect-error channels is a list, not a single name
-connect(broadcastChannelTransport(), 'cart:count');
+connectTransport(broadcastChannelTransport(), 'cart:count');
 // @ts-expect-error a wire is a string
 broadcastChannelTransport(1);
 
@@ -55,7 +55,7 @@ export const custom: domain.Transport = {
     return () => {};
   },
 };
-connect(custom, ['cart:count']);
+connectTransport(custom, ['cart:count']);
 // @ts-expect-error a transport needs a name
 export const nameless: Transport = { send: () => {}, listen: () => () => {} };
 // @ts-expect-error an envelope carries retain
@@ -75,7 +75,7 @@ tap?.replay();
 
 // The types from both entries are the same types.
 export const viaDomainBus: domain.Bus = bus;
-export const options: domain.ConnectOptions = {} satisfies ConnectOptions;
+export const options: domain.ConnectTransportOptions = {} satisfies ConnectTransportOptions;
 export const viaDomain: domain.Connection | undefined = tabs;
 export const domainTap: domain.Tap | undefined = tap;
 export const domainObserver: domain.TapObserver = observer;

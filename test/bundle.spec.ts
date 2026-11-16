@@ -7,7 +7,7 @@ import { version } from '../package.json';
 import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
 import type {
   Connection,
-  ConnectOptions,
+  ConnectTransportOptions,
   Transport,
 } from '../src/lib/domain/connect/connect.contract.js';
 
@@ -26,10 +26,10 @@ const manifest = (): Manifest => JSON.parse(readFileSync(resolve(DIST, 'package.
 // The root and ./setup entries of one copy of the package.
 type Copy = {
   bus: Bus;
-  connect: (
+  connectTransport: (
     transport: Transport,
     channels: string[],
-    options?: ConnectOptions
+    options?: ConnectTransportOptions
   ) => Connection | undefined;
   createBus: () => Bus;
   busFrom: (get: () => NativeFederationBus | undefined) => Bus;
@@ -163,17 +163,17 @@ describe('the published bundles', () => {
   });
 
   describe('./setup', () => {
-    it('builds a bus over a custom source with busFrom, which connect then uses', async () => {
+    it('builds a bus over a custom source with busFrom, which connectTransport then uses', async () => {
       vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const { busFrom, connect, createBus } = await loadCopy();
+      const { busFrom, connectTransport, createBus } = await loadCopy();
       const holder: { bus?: Bus } = {};
       const facade = busFrom(() => holder.bus);
       const sent: unknown[] = [];
       const transport = { name: 't', send: (e: unknown) => sent.push(e), listen: () => () => {} };
 
-      expect(connect(transport, ['a'], { bus: facade })).toBeUndefined();
+      expect(connectTransport(transport, ['a'], { bus: facade })).toBeUndefined();
       holder.bus = createBus();
-      const connection = connect(transport, ['a'], { bus: facade });
+      const connection = connectTransport(transport, ['a'], { bus: facade });
       facade.emit('a', 1);
       connection?.close();
 
@@ -368,11 +368,11 @@ describe('the published bundles', () => {
       one.bus.on(channel, value => here.push(value));
       otherTab.on(channel, value => there.push(value));
 
-      const first = one.connect(tabsOne.broadcastChannelTransport(), [channel])!;
-      const refused = two.connect(tabsTwo.broadcastChannelTransport(), [channel]);
+      const first = one.connectTransport(tabsOne.broadcastChannelTransport(), [channel])!;
+      const refused = two.connectTransport(tabsTwo.broadcastChannelTransport(), [channel]);
       connections.push(
         first,
-        one.connect(tabsOne.broadcastChannelTransport(), [channel], { bus: otherTab })!
+        one.connectTransport(tabsOne.broadcastChannelTransport(), [channel], { bus: otherTab })!
       );
       expect(refused).toBeUndefined();
       expect(warn).not.toHaveBeenCalled();

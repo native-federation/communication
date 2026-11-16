@@ -33,7 +33,7 @@ for (const file of typesFiles) {
   assert.ok(existsSync(join(dirname(manifestPath), file)), `${file} is missing`);
 }
 
-assert.deepEqual(Object.keys(main).sort(), ['bus', 'connect']);
+assert.deepEqual(Object.keys(main).sort(), ['bus', 'connectTransport']);
 assert.deepEqual(Object.keys(setup).sort(), ['busFrom', 'createBus', 'getNFBus', 'installNFBus']);
 assert.deepEqual(Object.keys(broadcastChannel), ['broadcastChannelTransport']);
 // ./domain holds types only, so at runtime it is an empty module
@@ -72,8 +72,8 @@ assert.equal(setup.getNFBus(), installed);
 bus.emit('cart:count', 3);
 assert.equal(installed.peek('cart:count'), 3);
 
-// The installed bus can be tapped, so connect opens a channel; close lets node exit.
-const connection = main.connect(broadcastChannel.broadcastChannelTransport('consumer'), ['cart:count']);
+// The installed bus can be tapped, so connectTransport opens a channel; close lets node exit.
+const connection = main.connectTransport(broadcastChannel.broadcastChannelTransport('consumer'), ['cart:count']);
 assert.equal(warnings.length, 1);
 connection.close();
 

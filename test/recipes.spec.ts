@@ -260,7 +260,7 @@ describe('the WebView page recipe', () => {
     globalThis.__NF_BUS__?.emit('recipe:unlisted', 1);
     fromApp?.(JSON.stringify({ channel: 'auth:user', value: { id: 1 }, retain: true }));
 
-    // 'nf:ready' comes first: listen runs as soon as connect has claimed the transport name.
+    // 'nf:ready' comes first: listen runs as soon as connectTransport has claimed the transport name.
     expect(postMessage.mock.calls).toEqual([
       ['nf:ready'],
       [JSON.stringify({ channel: 'cart:changed', value: { count: 1 }, retain: true })],

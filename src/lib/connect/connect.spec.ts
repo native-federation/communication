@@ -2,7 +2,7 @@ import { stubReportError } from '../../../test/helpers.js';
 import { createBus } from '../bus/create-bus.js';
 import type { Bus, Envelope } from '../domain/bus/bus.contract.js';
 import type { Connection, Transport } from '../domain/connect/connect.contract.js';
-import { connect } from './connect.js';
+import { connectTransport } from './connect.js';
 
 type Receive = (envelope: Envelope) => void;
 
@@ -52,8 +52,8 @@ function pair(channels: string[]): [Side, Side] {
   wire(ta, tb);
   const [a, b] = [createBus(), createBus()];
   return [
-    { bus: a, transport: ta, connection: connect(ta, channels, { bus: a })! },
-    { bus: b, transport: tb, connection: connect(tb, channels, { bus: b })! },
+    { bus: a, transport: ta, connection: connectTransport(ta, channels, { bus: a })! },
+    { bus: b, transport: tb, connection: connectTransport(tb, channels, { bus: b })! },
   ];
 }
 
@@ -104,13 +104,13 @@ describe('connect', () => {
       ['a missing listen', { name: 't', send: () => {} }],
       ['a listen that is not a function', { ...valid(), listen: {} }],
     ])('rejects %s as a transport', (_, transport) => {
-      expect(() => connect(transport as never, ['a'], { bus: createBus() })).toThrow(TypeError);
+      expect(() => connectTransport(transport as never, ['a'], { bus: createBus() })).toThrow(TypeError);
     });
 
     it.each([1, undefined, null, {}])('rejects %s in the channel list', channel => {
       const transport = endpoint();
 
-      expect(() => connect(transport, ['a', channel as never], { bus: createBus() })).toThrow(
+      expect(() => connectTransport(transport, ['a', channel as never], { bus: createBus() })).toThrow(
         /A channel must be a string/
       );
       expect(transport.listen).not.toHaveBeenCalled();
@@ -120,7 +120,7 @@ describe('connect', () => {
       const [a, b] = [endpoint(), endpoint()];
       wire(a, b);
       const bus = createBus();
-      connect(a, [], { bus });
+      connectTransport(a, [], { bus });
 
       bus.emit('a', 1);
       a.inject({ channel: 'a', value: 2, retain: true });
@@ -136,7 +136,7 @@ describe('connect', () => {
       globalThis.__NF_BUS__ = installed;
       const transport = endpoint();
 
-      connect(transport, ['a']);
+      connectTransport(transport, ['a']);
       installed.emit('a', 1);
       transport.inject({ channel: 'a', value: 2, retain: true });
 
@@ -149,7 +149,7 @@ describe('connect', () => {
       globalThis.__NF_BUS__ = installed;
       const transport = endpoint();
 
-      connect(transport, ['a'], { bus: globalThis.__NF_BUS__ });
+      connectTransport(transport, ['a'], { bus: globalThis.__NF_BUS__ });
       installed.emit('a', 1);
 
       expect(transport.sent).toHaveLength(1);
@@ -160,7 +160,7 @@ describe('connect', () => {
       globalThis.__NF_BUS__ = installed;
       const transport = endpoint();
 
-      connect(transport, ['a'], {});
+      connectTransport(transport, ['a'], {});
       installed.emit('a', 1);
 
       expect(transport.sent).toHaveLength(1);
@@ -173,7 +173,7 @@ describe('connect', () => {
       globalThis.__NF_BUS__ = installed;
       const transport = endpoint();
 
-      const connection = connect(transport, ['a'], { bus: undefined });
+      const connection = connectTransport(transport, ['a'], { bus: undefined });
       installed.emit('a', 1);
 
       expect(connection).toBeUndefined();
@@ -186,7 +186,7 @@ describe('connect', () => {
     // With nothing installed the global bus is the inert one, which has no tap.
     it('is refused when no bus is installed', () => {
       const transport = endpoint();
-      const connection = connect(transport, ['a']);
+      const connection = connectTransport(transport, ['a']);
 
       expect(connection).toBeUndefined();
       expect(transport.listen).not.toHaveBeenCalled();
@@ -201,7 +201,7 @@ describe('connect', () => {
       const first = endpoint('first');
       const second = endpoint('second');
 
-      const connections = [connect(first, ['a'], { bus }), connect(second, ['a'], { bus })];
+      const connections = [connectTransport(first, ['a'], { bus }), connectTransport(second, ['a'], { bus })];
       first.inject({ channel: 'a', value: 1, retain: true });
 
       expect(connections).toEqual([undefined, undefined]);
@@ -222,9 +222,9 @@ describe('connect', () => {
       const bus = createBus();
       const original = endpoint('broadcast:x');
       const duplicate = endpoint('broadcast:x');
-      connect(original, ['a'], { bus });
+      connectTransport(original, ['a'], { bus });
 
-      const connection = connect(duplicate, ['a'], { bus });
+      const connection = connectTransport(duplicate, ['a'], { bus });
       bus.emit('a', 1);
 
       expect(connection).toBeUndefined();
@@ -239,15 +239,15 @@ describe('connect', () => {
       const bus = createBus();
       bus.tap!('logger', () => {});
 
-      expect(connect(endpoint('logger'), ['a'], { bus })).toBeUndefined();
+      expect(connectTransport(endpoint('logger'), ['a'], { bus })).toBeUndefined();
       expect(warn).not.toHaveBeenCalled();
     });
 
     it('is accepted on another bus', () => {
-      connect(endpoint(), ['a'], { bus: createBus() });
+      connectTransport(endpoint(), ['a'], { bus: createBus() });
       const transport = endpoint();
 
-      connect(transport, ['a'], { bus: createBus() });
+      connectTransport(transport, ['a'], { bus: createBus() });
 
       expect(transport.listen).toHaveBeenCalledTimes(1);
       expect(warn).not.toHaveBeenCalled();
@@ -264,10 +264,10 @@ describe('connect', () => {
         }),
       };
 
-      expect(() => connect(broken, ['a'], { bus })).toThrow(error);
+      expect(() => connectTransport(broken, ['a'], { bus })).toThrow(error);
       bus.emit('a', 1);
       const retry = endpoint();
-      connect(retry, ['a'], { bus });
+      connectTransport(retry, ['a'], { bus });
       bus.emit('a', 2);
 
       expect(broken.sent).toEqual([]);
@@ -277,10 +277,10 @@ describe('connect', () => {
 
     it('is accepted again once the first connection is closed', () => {
       const bus = createBus();
-      connect(endpoint(), ['a'], { bus })!.close();
+      connectTransport(endpoint(), ['a'], { bus })!.close();
       const transport = endpoint();
 
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
       bus.emit('a', 1);
 
       expect(warn).not.toHaveBeenCalled();
@@ -292,7 +292,7 @@ describe('connect', () => {
     it('sends an emit on a listed channel with its value and retain', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a', 'b'], { bus });
+      connectTransport(transport, ['a', 'b'], { bus });
       const value = { id: 1 };
 
       bus.emit('a', value);
@@ -309,7 +309,7 @@ describe('connect', () => {
     it('sends exactly { channel, value, retain }', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
 
       bus.emit('a', 1, { retain: false, extra: 1 } as never);
 
@@ -319,7 +319,7 @@ describe('connect', () => {
     it('sends nothing for a channel that is not listed', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
 
       bus.emit('b', 1);
       bus.emit('a:sub', 1);
@@ -332,7 +332,7 @@ describe('connect', () => {
       bus.emit('a', 1);
       const transport = endpoint();
 
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
 
       expect(transport.sent).toEqual([]);
     });
@@ -340,7 +340,7 @@ describe('connect', () => {
     it('sends in listener-delivery order, re-entrant emits included', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a', 'b'], { bus });
+      connectTransport(transport, ['a', 'b'], { bus });
       bus.on('a', value => bus.emit('b', `re:${value}`));
 
       bus.emit('a', 1);
@@ -365,8 +365,8 @@ describe('connect', () => {
         },
       };
       const healthy = endpoint('healthy');
-      connect(broken, ['a'], { bus });
-      connect(healthy, ['a'], { bus });
+      connectTransport(broken, ['a'], { bus });
+      connectTransport(healthy, ['a'], { bus });
       const received = live(bus, 'a');
 
       bus.emit('a', 1);
@@ -377,13 +377,13 @@ describe('connect', () => {
       expect(healthy.sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
     });
 
-    // connect does not check send: the TypeError from calling it surfaces on each emit, reported
+    // connectTransport does not check send: the TypeError from calling it surfaces on each emit, reported
     // like a throwing send.
     it('reports a send that is not a function on each emit and keeps local delivery', () => {
       const reportError = stubReportError();
       const bus = createBus();
       const transport = { name: 't', send: 'post', listen: () => () => {} };
-      const connection = connect(transport as never, ['a'], { bus });
+      const connection = connectTransport(transport as never, ['a'], { bus });
       const received = live(bus, 'a');
 
       bus.emit('a', 1);
@@ -404,7 +404,7 @@ describe('connect', () => {
     it('emits a listed envelope on the bus, retained when it says so', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a', 'b'], { bus });
+      connectTransport(transport, ['a', 'b'], { bus });
       const a = live(bus, 'a');
       const b = live(bus, 'b');
       const value = { id: 1 };
@@ -428,7 +428,7 @@ describe('connect', () => {
     ])('follows emit for a %s retain', (_, retain, retained) => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
       const received = live(bus, 'a');
 
       transport.inject({ channel: 'a', value: 1, retain });
@@ -440,7 +440,7 @@ describe('connect', () => {
     it('ignores an envelope on a channel that is not listed', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
       const received = live(bus, 'b');
 
       transport.inject({ channel: 'b', value: 1, retain: true });
@@ -462,7 +462,7 @@ describe('connect', () => {
       const reportError = stubReportError();
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a', '1'], { bus });
+      connectTransport(transport, ['a', '1'], { bus });
       const listener = vi.fn();
       bus.on('a', listener);
       bus.on('1', listener);
@@ -476,7 +476,7 @@ describe('connect', () => {
     it('does not send an applied envelope back over the transport it came from', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a'], { bus });
+      connectTransport(transport, ['a'], { bus });
 
       transport.inject({ channel: 'a', value: 1, retain: true });
 
@@ -486,7 +486,7 @@ describe('connect', () => {
     it('sends what local listeners emit in response to an applied envelope', () => {
       const bus = createBus();
       const transport = endpoint();
-      connect(transport, ['a', 'ack'], { bus });
+      connectTransport(transport, ['a', 'ack'], { bus });
       bus.on('a', value => bus.emit('ack', value, { retain: false }), { replay: false });
 
       transport.inject({ channel: 'a', value: 1, retain: true });
@@ -549,8 +549,8 @@ describe('connect', () => {
       const [ta, tb] = [endpoint(), endpoint()];
       wire(ta, tb);
       const [a, b] = [createBus(), createBus()];
-      connect(ta, ['shared', 'a-only'], { bus: a });
-      connect(tb, ['shared', 'b-only'], { bus: b });
+      connectTransport(ta, ['shared', 'a-only'], { bus: a });
+      connectTransport(tb, ['shared', 'b-only'], { bus: b });
 
       a.emit('a-only', 1);
       b.emit('b-only', 2);
@@ -573,7 +573,7 @@ describe('connect', () => {
       bus.emit('b', undefined);
       bus.emit('command', 3, { retain: false });
       const transport = endpoint();
-      const connection = connect(transport, ['a', 'b', 'command'], { bus })!;
+      const connection = connectTransport(transport, ['a', 'b', 'command'], { bus })!;
 
       connection.replay();
 
@@ -588,8 +588,8 @@ describe('connect', () => {
       wire(ta, tb);
       const [a, b] = [createBus(), createBus()];
       a.emit('cart', 3);
-      const atA = connect(ta, ['cart'], { bus: a })!;
-      connect(tb, ['cart'], { bus: b });
+      const atA = connectTransport(ta, ['cart'], { bus: a })!;
+      connectTransport(tb, ['cart'], { bus: b });
       expect(b.peek('cart')).toBeUndefined();
 
       atA.replay();
@@ -604,8 +604,8 @@ describe('connect', () => {
       bus.emit('a', 1);
       const one = endpoint('one');
       const two = endpoint('two');
-      const connection = connect(one, ['a'], { bus })!;
-      connect(two, ['a'], { bus });
+      const connection = connectTransport(one, ['a'], { bus })!;
+      connectTransport(two, ['a'], { bus });
 
       connection.replay();
 
@@ -618,7 +618,7 @@ describe('connect', () => {
     it('stops both directions and unlistens once, however often it is called', () => {
       const bus = createBus();
       const transport = endpoint();
-      const connection = connect(transport, ['a'], { bus })!;
+      const connection = connectTransport(transport, ['a'], { bus })!;
 
       connection.close();
       connection.close();
@@ -641,7 +641,7 @@ describe('connect', () => {
         send: () => {},
         listen: fn => ((receive = fn), () => {}),
       };
-      const connection = connect(transport, ['a'], { bus })!;
+      const connection = connectTransport(transport, ['a'], { bus })!;
       const received = live(bus, 'a');
 
       connection.close();
@@ -655,8 +655,8 @@ describe('connect', () => {
       const bus = createBus();
       const closed = endpoint('closed');
       const open = endpoint('open');
-      connect(closed, ['a'], { bus })!.close();
-      connect(open, ['a'], { bus });
+      connectTransport(closed, ['a'], { bus })!.close();
+      connectTransport(open, ['a'], { bus });
       const received = live(bus, 'a');
 
       bus.emit('a', 1);
@@ -675,10 +675,10 @@ describe('connect', () => {
       wire(aToHub, hubToA);
       wire(cToHub, hubToC);
       const [a, h, c] = [createBus(), createBus(), createBus()];
-      connect(aToHub, ['cart'], { bus: a });
-      connect(hubToA, ['cart'], { bus: h });
-      connect(hubToC, ['cart'], { bus: h });
-      connect(cToHub, ['cart'], { bus: c });
+      connectTransport(aToHub, ['cart'], { bus: a });
+      connectTransport(hubToA, ['cart'], { bus: h });
+      connectTransport(hubToC, ['cart'], { bus: h });
+      connectTransport(cToHub, ['cart'], { bus: c });
       return { a, h, c, aToHub, hubToA, hubToC, cToHub };
     }
 

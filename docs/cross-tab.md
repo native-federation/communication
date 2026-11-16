@@ -6,10 +6,10 @@
 other tab of the same origin:
 
 ```js
-import { connect } from '@softarc/native-federation-communication';
+import { connectTransport } from '@softarc/native-federation-communication';
 import { broadcastChannelTransport } from '@softarc/native-federation-communication/transport/broadcast-channel';
 
-const connection = connect(broadcastChannelTransport(), ['cart:changed', 'auth:user']);
+const connection = connectTransport(broadcastChannelTransport(), ['cart:changed', 'auth:user']);
 ```
 
 ## Why BroadcastChannel
@@ -21,7 +21,7 @@ job. What crosses tabs is `BroadcastChannel`, so the transport uses it and no `C
 ## Connect once, in the host
 
 Connect after the bus is installed, such as after the `/install` import: without an installed bus
-`connect` warns and returns `undefined`. List the channels explicitly. Channels you don't list stay in
+`connectTransport` warns and returns `undefined`. List the channels explicitly. Channels you don't list stay in
 the tab.
 
 Sync source channels, not the ones derived from them. If a listener on `cart:changed` emits
@@ -49,8 +49,8 @@ last-writer-wins.
 
 ## Copies
 
-Every copy's `broadcastChannelTransport()` has the same name, so a second `connect` on the same bus returns
-`undefined` and its channels are not bridged. List every channel in the host's one `connect`. If
+Every copy's `broadcastChannelTransport()` has the same name, so a second `connectTransport` on the same bus returns
+`undefined` and its channels are not bridged. List every channel in the host's one `connectTransport`. If
 the host calls `close()`, nobody takes over; connect again.
 
 All tabs share one wire, `native-federation-communication`. A private bus from `createBus()` (in

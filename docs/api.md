@@ -8,7 +8,7 @@ Every subpath is under `@softarc/native-federation-communication`:
 
 | Import                         | Exports                                            | For                                                      |
 | ------------------------------ | -------------------------------------------------- | -------------------------------------------------------- |
-| the package                    | `bus`, `connect`, every type                       | Everyone                                                 |
+| the package                    | `bus`, `connectTransport`, every type              | Everyone                                                 |
 | `/install`                     | nothing: it installs a bus                         | The host, once                                           |
 | `/setup`                       | `createBus`, `busFrom`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
 | `/domain`                      | every type, and the `__NF_BUS__` global            | Types without runtime code                               |
@@ -16,7 +16,7 @@ Every subpath is under `@softarc/native-federation-communication`:
 | `/install.js`                  | a classic script that installs a bus               | The [script tag](./getting-started.md#with-a-script-tag) |
 
 ```js
-import { bus, connect } from '@softarc/native-federation-communication';
+import { bus, connectTransport } from '@softarc/native-federation-communication';
 import {
   busFrom,
   createBus,
@@ -47,11 +47,11 @@ frameBus.emit('cart:changed', { count: 3 }); // dropped until the iframe install
 const scopedBus = busFrom(() => container.resolve('bus')); // whatever the container holds now
 ```
 
-Pass such a bus to [`connect`](#connecttransport-channels-options) as `{ bus }`. The facade has `tap`
-only while the bus behind it has one, so `connect` refuses it until then:
+Pass such a bus to [`connectTransport`](#connecttransporttransport-channels-options) as `{ bus }`. The facade has `tap`
+only while the bus behind it has one, so `connectTransport` refuses it until then:
 
 ```js
-const connection = connect(transport, ['cart:changed'], { bus: frameBus });
+const connection = connectTransport(transport, ['cart:changed'], { bus: frameBus });
 ```
 
 ## The bus
@@ -103,7 +103,7 @@ Returns the retained value, or `undefined`. A retained `undefined` looks the sam
 ## `tap(name, observer)`
 
 The extension point for bridges: `observer` sees every emit on every channel. To bridge channels, use
-[`connect`](#connecttransport-channels-options), which is built on it.
+[`connectTransport`](#connecttransporttransport-channels-options), which is built on it.
 
 ```ts
 type Envelope = { channel: string; value: unknown; retain: boolean };
@@ -132,15 +132,15 @@ const tap = bus.tap?.('logger', ({ channel, value, retain }) => log(channel, val
 - `tap.close()` removes the tap and frees its name; `emit` and `replay` then do nothing. It is safe to
   call twice.
 
-## `connect(transport, channels, options?)`
+## `connectTransport(transport, channels, options?)`
 
 Bridges the listed channels to a bus on the other side of a transport: another tab, a WebView, a
 native app.
 
 ```js
-import { connect } from '@softarc/native-federation-communication';
+import { connectTransport } from '@softarc/native-federation-communication';
 
-const connection = connect(transport, ['cart:changed', 'auth:user']);
+const connection = connectTransport(transport, ['cart:changed', 'auth:user']);
 connection?.replay(); // send this side's retained values, e.g. when the other side (re)loads
 connection?.close(); // stop both directions; safe to call twice
 ```
@@ -151,7 +151,7 @@ connection?.close(); // stop both directions; safe to call twice
 - `{ bus }` connects another bus, such as one from `createBus()` or `busFrom(get)`, instead of the
   page bus. An explicit `{ bus: undefined }` is refused like a bus without `tap`, never replaced by
   the page bus.
-- `connect` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
+- `connectTransport` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
   or an older copy installed it (it then warns), or when its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.
 - A channel that is not a string, or a transport without a string `name` or a `listen` function,
@@ -173,16 +173,16 @@ type Transport = {
 
 A received envelope's `retain` follows `emit`'s rules.
 
-`Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows six
+`Transport`, `Envelope`, `Connection` and `ConnectTransportOptions` are exported types. A transport follows six
 rules:
 
 - **`send` never delivers back to the sender's own side.** An echo would reach its listeners twice.
 - **Values must survive the encoding.** JSON drops functions and `undefined` fields; structured clone
   turns class instances into plain objects and rejects functions.
 - **`name` is its tap name; taps and transports share one namespace per bus.** Use `kind:id` names like
-  `broadcast:<wire>`. A second `connect` with a taken name returns `undefined`, which keeps two copies
+  `broadcast:<wire>`. A second `connectTransport` with a taken name returns `undefined`, which keeps two copies
   of the same transport from bridging twice.
-- **`listen` may throw; `connect` then closes the tap and rethrows.**
+- **`listen` may throw; `connectTransport` then closes the tap and rethrows.**
 - **`send` is fire-and-forget: a synchronous throw is reported; an async `send` handles its own
   rejections.**
 - **Connections form a tree.** A value received over one connection is sent on by the bus's other

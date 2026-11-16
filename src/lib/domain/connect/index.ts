@@ -1,1 +1,1 @@
-export type { Connection, ConnectOptions, Transport } from './connect.contract.js';
+export type { Connection, ConnectTransportOptions, Transport } from './connect.contract.js';

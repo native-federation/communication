@@ -1,5 +1,5 @@
 import type { ChannelName, Tap } from '../domain/bus/bus.contract.js';
-import type { Connection, ConnectOptions, Transport } from '../domain/connect/connect.contract.js';
+import type { Connection, ConnectTransportOptions, Transport } from '../domain/connect/connect.contract.js';
 import { assertChannel, noop } from '../bus/arguments.js';
 import { bus as globalBus } from '../global/global-bus.js';
 
@@ -27,13 +27,13 @@ function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
 }
 
 // An explicit `bus: undefined`, e.g. an iframe's empty slot, must not fall back to the page bus.
-const chosenBus = (options?: ConnectOptions) =>
+const chosenBus = (options?: ConnectTransportOptions) =>
   options && 'bus' in options ? options.bus : globalBus;
 
-export function connect(
+export function connectTransport(
   transport: Transport,
   channels: readonly ChannelName[],
-  options?: ConnectOptions
+  options?: ConnectTransportOptions
 ): Connection | undefined {
   channels.forEach(assertChannel);
   const listed = new Set<string>(channels);

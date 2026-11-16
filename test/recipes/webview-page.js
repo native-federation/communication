@@ -1,4 +1,4 @@
-import { connect } from '@softarc/native-federation-communication';
+import { connectTransport } from '@softarc/native-federation-communication';
 
 const app = {
   name: 'react-native',
@@ -10,4 +10,4 @@ const app = {
   },
 };
 
-connect(app, ['cart:changed', 'auth:user']);
+connectTransport(app, ['cart:changed', 'auth:user']);

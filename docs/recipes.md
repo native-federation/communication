@@ -169,18 +169,18 @@ federated host, its `bootstrap.ts`), and call `installRequestBus()` from the ser
 ## React Native and WebView
 
 React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
-[`connect`](./api.md#connecttransport-channels-options) and one [transport](./api.md#transports) per
+[`connectTransport`](./api.md#connecttransporttransport-channels-options) and one [transport](./api.md#transports) per
 side. Each side installs its bus once, first thing in its entry (the app's `index.js`; in a federated
 page, the module `initFederation` loads), with `import '@softarc/native-federation-communication/install';`, and imports `bus` and
-`connect` from the main entry. `./transport/broadcast-channel` isn't needed, and Metro resolves the package's
+`connectTransport` from the main entry. `./transport/broadcast-channel` isn't needed, and Metro resolves the package's
 `exports` by default from React Native 0.79.
 
 The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
-receives through a global that the app calls. `connect` calls `listen` once it is connected, so that is
+receives through a global that the app calls. `connectTransport` calls `listen` once it is connected, so that is
 where the page tells the app it is ready:
 
 ```js
-import { connect } from '@softarc/native-federation-communication';
+import { connectTransport } from '@softarc/native-federation-communication';
 
 const app = {
   name: 'react-native',
@@ -192,7 +192,7 @@ const app = {
   },
 };
 
-connect(app, ['cart:changed', 'auth:user']);
+connectTransport(app, ['cart:changed', 'auth:user']);
 ```
 
 The app injects a call to that global, with the JSON encoded twice so it is a string literal, and gets
@@ -201,7 +201,7 @@ the page's messages from `onMessage`:
 ```jsx
 import { useEffect, useRef, useState } from 'react';
 import { WebView } from 'react-native-webview';
-import { connect } from '@softarc/native-federation-communication';
+import { connectTransport } from '@softarc/native-federation-communication';
 
 function webViewTransport(name, webView, onReady) {
   let receive = () => {};
@@ -220,7 +220,7 @@ function webViewTransport(name, webView, onReady) {
   };
 }
 
-// Other libraries post on the same channel; connect ignores what is not an envelope.
+// Other libraries post on the same channel; connectTransport ignores what is not an envelope.
 function parse(data) {
   try {
     return JSON.parse(data);
@@ -237,7 +237,7 @@ export function Shop() {
   );
 
   useEffect(() => {
-    connection.current = connect(transport, ['cart:changed', 'auth:user']);
+    connection.current = connectTransport(transport, ['cart:changed', 'auth:user']);
     return () => connection.current?.close();
   }, [transport]);
 

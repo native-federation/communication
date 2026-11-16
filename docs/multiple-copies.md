@@ -34,7 +34,7 @@ The frozen object in `__NF_BUS__` is the contract between old and new copies:
 - A breaking change gets a new global name.
 
 `tap` is such a member: a copy calls `bus.tap?.(…)`, and
-[`connect`](./api.md#connecttransport-channels-options) warns and does nothing on a bus without it.
+[`connectTransport`](./api.md#connecttransporttransport-channels-options) warns and does nothing on a bus without it.
 Two more contracts are shared by copies of the [cross-tab](./cross-tab.md) transport, and changing
 either needs a new wire name:
 

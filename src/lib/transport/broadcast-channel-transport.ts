@@ -7,7 +7,7 @@ export function broadcastChannelTransport(wire = 'native-federation-communicatio
   return {
     name: `broadcast:${wire}`,
     send: (envelope: Envelope) => port?.postMessage(envelope),
-    // Opened here, not up front, so a refused connect opens nothing.
+    // Opened here, not up front, so a refused connectTransport opens nothing.
     listen: (receive: (envelope: Envelope) => void) => {
       if (port) {
         throw new Error(

@@ -1,5 +1,5 @@
 import { createBus } from '../bus/create-bus.js';
-import { connect } from '../connect/connect.js';
+import { connectTransport } from '../connect/connect.js';
 import type { Bus, Envelope } from '../domain/bus/bus.contract.js';
 import type { Connection, Transport } from '../domain/connect/connect.contract.js';
 import { noop } from '../bus/arguments.js';
@@ -124,7 +124,7 @@ describe('broadcastChannelTransport', () => {
       expect(other.received).toEqual([]);
     });
 
-    // connect reports this throw; see connect.spec.ts.
+    // connectTransport reports this throw; see connect.spec.ts.
     it('throws from send on a value structured clone cannot copy', () => {
       const a = listening(fresh());
 
@@ -152,13 +152,13 @@ describe('broadcastChannelTransport', () => {
       expect(receiver.received).toEqual([]);
     });
 
-    it('opens nothing for a connect refused as a duplicate', () => {
+    it('opens nothing for a connectTransport refused as a duplicate', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const bus = createBus();
       const wire = fresh();
-      track(connect(broadcastChannelTransport(wire), ['x'], { bus })!.close);
+      track(connectTransport(broadcastChannelTransport(wire), ['x'], { bus })!.close);
 
-      const duplicate = connect(broadcastChannelTransport(wire), ['x'], { bus });
+      const duplicate = connectTransport(broadcastChannelTransport(wire), ['x'], { bus });
 
       expect(duplicate).toBeUndefined();
       expect(opened).toHaveLength(1);
@@ -213,17 +213,17 @@ describe('broadcastChannelTransport', () => {
       await fence(other.transport, first);
     });
 
-    // Relies on connect closing the tap when listen throws.
+    // Relies on connectTransport closing the tap when listen throws.
     it('throws when connected to a second bus, leaving that bus’s tap name free', () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const wire = fresh();
       const transport = broadcastChannelTransport(wire);
-      track(connect(transport, ['x'], { bus: createBus() })!.close);
+      track(connectTransport(transport, ['x'], { bus: createBus() })!.close);
       const second = createBus();
 
-      expect(() => connect(transport, ['x'], { bus: second })).toThrow(already(wire));
+      expect(() => connectTransport(transport, ['x'], { bus: second })).toThrow(already(wire));
 
-      track(connect(broadcastChannelTransport(wire), ['x'], { bus: second })!.close);
+      track(connectTransport(broadcastChannelTransport(wire), ['x'], { bus: second })!.close);
       expect(warn).not.toHaveBeenCalled();
       expect(opened).toHaveLength(2);
     });
@@ -257,10 +257,10 @@ describe('broadcastChannelTransport', () => {
       expect(receive).not.toHaveBeenCalled();
     });
 
-    it('makes connect a working no-op that keeps local delivery', () => {
+    it('makes connectTransport a working no-op that keeps local delivery', () => {
       vi.stubGlobal('BroadcastChannel', undefined);
       const bus = createBus();
-      const connection = connect(broadcastChannelTransport(fresh()), ['x'], { bus })!;
+      const connection = connectTransport(broadcastChannelTransport(fresh()), ['x'], { bus })!;
       const received: unknown[] = [];
       bus.on('x', value => received.push(value));
 
@@ -273,10 +273,10 @@ describe('broadcastChannelTransport', () => {
   });
 
   // Two buses stand in for two tabs.
-  describe('through connect', () => {
+  describe('through connectTransport', () => {
     function tab(wire: string, channels: string[]): { bus: Bus; connection: Connection } {
       const bus = createBus();
-      const connection = connect(broadcastChannelTransport(wire), channels, { bus })!;
+      const connection = connectTransport(broadcastChannelTransport(wire), channels, { bus })!;
       track(connection.close);
       return { bus, connection };
     }
