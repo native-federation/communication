@@ -9,6 +9,6 @@
     "emitDeclarationOnly": true,
     "sourceMap": true
   },
-  "include": ["src/index.ts", "src/domain.ts", "src/cross-tab.ts", "src/lib/**/*"],
+  "include": ["src/index.ts", "src/domain.ts", "src/transport/cross-tab.ts", "src/lib/**/*"],
   "exclude": ["src/**/*.spec.ts"]
 }

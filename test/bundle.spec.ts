@@ -15,7 +15,7 @@ import type {
 const DIST = resolve(__dirname, '.dist');
 const ESM = resolve(DIST, 'fesm2022/@softarc/native-federation-communication.mjs');
 const SCRIPT = readFileSync(resolve(DIST, 'init-bus.js'), 'utf8');
-const CROSS_TAB_PATH = 'fesm2022/@softarc/native-federation-communication-cross-tab.mjs';
+const CROSS_TAB_PATH = 'fesm2022/@softarc/native-federation-communication-transport-cross-tab.mjs';
 
 type Copy = {
   bus: Bus;
@@ -211,7 +211,7 @@ describe('the published bundles', () => {
     });
   });
 
-  describe('the cross-tab subpath', () => {
+  describe('the transport/cross-tab subpath', () => {
     // Counts the channels the copies open; messages still travel over the real BroadcastChannel.
     const ports: BroadcastChannel[] = [];
     const connections: Connection[] = [];
@@ -236,10 +236,10 @@ describe('the published bundles', () => {
       const manifest = JSON.parse(readFileSync(resolve(DIST, 'package.json'), 'utf8')) as {
         exports: Record<string, Record<string, string>>;
       };
-      const entry = manifest.exports['./cross-tab']!;
+      const entry = manifest.exports['./transport/cross-tab']!;
 
       expect(entry).toEqual({
-        types: './types/cross-tab.d.ts',
+        types: './types/transport/cross-tab.d.ts',
         import: `./${CROSS_TAB_PATH}`,
         default: `./${CROSS_TAB_PATH}`,
       });

@@ -7,7 +7,7 @@ other tab of the same origin:
 
 ```js
 import { connect } from '@softarc/native-federation-communication';
-import { broadcastTransport } from '@softarc/native-federation-communication/cross-tab';
+import { broadcastTransport } from '@softarc/native-federation-communication/transport/cross-tab';
 
 const connection = connect(broadcastTransport(), ['cart:changed', 'auth:user']);
 ```

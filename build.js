@@ -57,11 +57,11 @@ function generateBundles() {
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/cross-tab`]: {
+    [`${PACKAGE_NAME}/transport/cross-tab`]: {
       ...baseConfig,
       format: 'esm',
-      entryPoints: ['src/cross-tab.ts'],
-      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-cross-tab.mjs'),
+      entryPoints: ['src/transport/cross-tab.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-transport-cross-tab.mjs'),
       minify: false,
       sourcemap: true,
     },
@@ -91,10 +91,10 @@ function generatePackageExports() {
         import: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
       },
-      './cross-tab': {
-        types: './types/cross-tab.d.ts',
-        import: `./fesm2022/${PACKAGE_NAME}-cross-tab.mjs`,
-        default: `./fesm2022/${PACKAGE_NAME}-cross-tab.mjs`,
+      './transport/cross-tab': {
+        types: './types/transport/cross-tab.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-transport-cross-tab.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-transport-cross-tab.mjs`,
       },
       './init-bus.js': { default: './init-bus.js' },
     },

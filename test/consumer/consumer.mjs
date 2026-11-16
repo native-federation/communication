@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import * as main from '@softarc/native-federation-communication';
-import * as crossTab from '@softarc/native-federation-communication/cross-tab';
+import * as crossTab from '@softarc/native-federation-communication/transport/cross-tab';
 import * as domain from '@softarc/native-federation-communication/domain';
 
 const NAME = '@softarc/native-federation-communication';
@@ -19,7 +19,7 @@ const typesFiles = [
 ];
 assert.deepEqual(
   [...new Set(typesFiles)],
-  ['./types/index.d.ts', './types/domain.d.ts', './types/cross-tab.d.ts']
+  ['./types/index.d.ts', './types/domain.d.ts', './types/transport/cross-tab.d.ts']
 );
 for (const file of typesFiles) {
   assert.ok(existsSync(join(dirname(manifestPath), file)), `${file} is missing`);

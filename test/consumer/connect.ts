@@ -1,4 +1,4 @@
-// connect, tap and the ./cross-tab subpath, imported by package name like an app would.
+// connect, tap and the ./transport/cross-tab subpath, imported by package name like an app would.
 import {
   bus,
   connect,
@@ -11,7 +11,7 @@ import {
   type Transport,
 } from '@softarc/native-federation-communication';
 import type * as domain from '@softarc/native-federation-communication/domain';
-import { broadcastTransport } from '@softarc/native-federation-communication/cross-tab';
+import { broadcastTransport } from '@softarc/native-federation-communication/transport/cross-tab';
 
 export const tabs: Connection = connect(broadcastTransport(), ['cart:count']);
 connect(broadcastTransport('my-app'), ['cart:count'], { bus });

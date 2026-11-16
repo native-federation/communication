@@ -177,7 +177,7 @@ bus, across `await` too. A call outside a request is checked, then dropped with 
 
 React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
 [`connect`](./api.md#connecttransport-channels-options) and one [transport](./api.md#transports) per
-side. Both import the main entry: `./cross-tab` isn't needed, and Metro resolves the package's
+side. Both import the main entry: `./transport/cross-tab` isn't needed, and Metro resolves the package's
 `exports` by default from React Native 0.79.
 
 The page posts to `window.ReactNativeWebView`, which exists once the `WebView` has `onMessage`, and
