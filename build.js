@@ -57,6 +57,24 @@ function generateBundles() {
       sourcemap: true,
     },
 
+    [`${PACKAGE_NAME}/internal`]: {
+      ...baseConfig,
+      format: 'esm',
+      entryPoints: ['src/internal.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-internal.mjs'),
+      minify: false,
+      sourcemap: true,
+    },
+
+    [`${PACKAGE_NAME}/quickstart`]: {
+      ...baseConfig,
+      format: 'esm',
+      entryPoints: ['src/quickstart.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-quickstart.mjs'),
+      minify: false,
+      sourcemap: true,
+    },
+
     [`${PACKAGE_NAME}/transport/cross-tab`]: {
       ...baseConfig,
       format: 'esm',
@@ -66,11 +84,11 @@ function generateBundles() {
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/init-bus.js`]: {
+    [`${PACKAGE_NAME}/quickstart.js`]: {
       ...baseConfig,
       format: 'iife',
-      entryPoints: ['src/init-bus.ts'],
-      outfile: path.join(OUT_DIR, 'init-bus.js'),
+      entryPoints: ['src/quickstart.ts'],
+      outfile: path.join(OUT_DIR, 'quickstart.js'),
       minify: true,
       sourcemap: false,
     },
@@ -91,17 +109,27 @@ function generatePackageExports() {
         import: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
       },
+      './internal': {
+        types: './types/internal.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-internal.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-internal.mjs`,
+      },
+      './quickstart': {
+        types: './types/quickstart.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-quickstart.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-quickstart.mjs`,
+      },
       './transport/cross-tab': {
         types: './types/transport/cross-tab.d.ts',
         import: `./fesm2022/${PACKAGE_NAME}-transport-cross-tab.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}-transport-cross-tab.mjs`,
       },
-      './init-bus.js': { default: './init-bus.js' },
+      './quickstart.js': { default: './quickstart.js' },
     },
     typings: './types/index.d.ts',
     module: `./fesm2022/${PACKAGE_NAME}.mjs`,
     type: 'module',
-    sideEffects: ['./init-bus.js'],
+    sideEffects: [`./fesm2022/${PACKAGE_NAME}-quickstart.mjs`, './quickstart.js'],
   };
 }
 

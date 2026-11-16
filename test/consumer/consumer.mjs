@@ -7,9 +7,11 @@ import { dirname, join } from 'node:path';
 import * as main from '@softarc/native-federation-communication';
 import * as crossTab from '@softarc/native-federation-communication/transport/cross-tab';
 import * as domain from '@softarc/native-federation-communication/domain';
+import * as internal from '@softarc/native-federation-communication/internal';
 
 const NAME = '@softarc/native-federation-communication';
-const { bus, createBus } = main;
+const { bus } = main;
+const { createBus } = internal;
 
 const manifestPath = createRequire(import.meta.url).resolve(`${NAME}/package.json`);
 const manifest = createRequire(import.meta.url)(manifestPath);
@@ -19,13 +21,20 @@ const typesFiles = [
 ];
 assert.deepEqual(
   [...new Set(typesFiles)],
-  ['./types/index.d.ts', './types/domain.d.ts', './types/transport/cross-tab.d.ts']
+  [
+    './types/index.d.ts',
+    './types/domain.d.ts',
+    './types/internal.d.ts',
+    './types/quickstart.d.ts',
+    './types/transport/cross-tab.d.ts',
+  ]
 );
 for (const file of typesFiles) {
   assert.ok(existsSync(join(dirname(manifestPath), file)), `${file} is missing`);
 }
 
-assert.deepEqual(Object.keys(main).sort(), ['bus', 'connect', 'createBus']);
+assert.deepEqual(Object.keys(main).sort(), ['bus', 'connect']);
+assert.deepEqual(Object.keys(internal).sort(), ['createBus', 'getNFBus', 'installNFBus']);
 assert.deepEqual(Object.keys(crossTab), ['broadcastTransport']);
 // ./domain holds types only, so at runtime it is an empty module
 assert.deepEqual(Object.keys(domain), []);
@@ -47,10 +56,18 @@ assert.equal(bus.peek('cart:count'), undefined);
 assert.equal(globalThis.__NF_BUS__, undefined);
 assert.equal(warnings.length, 1);
 
-// init-bus.js installs a bus, under node too, and `bus` follows it.
-await import(`${NAME}/init-bus.js`);
+// A custom location is any object, and the global stays empty.
+const loc = {};
+const scoped = internal.installNFBus(createBus(), loc);
+assert.equal(internal.getNFBus(loc), scoped);
+assert.equal(globalThis.__NF_BUS__, undefined);
+
+// ./quickstart installs a bus, under node too, exports nothing, and `bus` follows it.
+const quickstart = await import(`${NAME}/quickstart`);
+assert.deepEqual(Object.keys(quickstart), []);
 const installed = globalThis.__NF_BUS__;
 assert.equal(installed?.protocol, 1);
+assert.equal(internal.getNFBus(), installed);
 bus.emit('cart:count', 3);
 assert.equal(installed.peek('cart:count'), 3);
 

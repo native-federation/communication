@@ -13,36 +13,53 @@ import type {
 
 // These specs run against the published artifacts that global-setup.ts builds into test/.dist.
 const DIST = resolve(__dirname, '.dist');
-const ESM = resolve(DIST, 'fesm2022/@softarc/native-federation-communication.mjs');
-const SCRIPT = readFileSync(resolve(DIST, 'init-bus.js'), 'utf8');
-const CROSS_TAB_PATH = 'fesm2022/@softarc/native-federation-communication-transport-cross-tab.mjs';
+const FESM = 'fesm2022/@softarc/native-federation-communication';
+const SCRIPT = readFileSync(resolve(DIST, 'quickstart.js'), 'utf8');
+const CROSS_TAB_PATH = `${FESM}-transport-cross-tab.mjs`;
 
+type Manifest = {
+  exports: Record<string, Record<string, string>>;
+  sideEffects: string[];
+};
+const manifest = (): Manifest => JSON.parse(readFileSync(resolve(DIST, 'package.json'), 'utf8'));
+
+// The root and ./internal entries of one copy of the package.
 type Copy = {
   bus: Bus;
-  createBus: () => Bus;
   connect: (
     transport: Transport,
     channels: string[],
     options?: ConnectOptions
   ) => Connection | undefined;
+  createBus: () => Bus;
+  getNFBus: (loc?: object) => Bus | undefined;
+  installNFBus: (bus: Bus, loc?: object) => Bus;
 };
 
 // A distinct query string makes vite load the same file as a separate module instance, which is
 // what two remotes shipping their own copy of the package look like on one page.
 let copies = 0;
+const load = (file: string) => import(/* @vite-ignore */ `${resolve(DIST, file)}?copy=${copies}`);
+
 async function loadCopy(): Promise<Copy> {
   copies += 1;
-  return import(/* @vite-ignore */ `${ESM}?copy=${copies}`);
+  return { ...(await load(`${FESM}.mjs`)), ...(await load(`${FESM}-internal.mjs`)) };
+}
+
+// Runs one copy's ./quickstart entry.
+async function quickstart(): Promise<void> {
+  copies += 1;
+  await load(`${FESM}-quickstart.mjs`);
 }
 
 type CrossTabCopy = { broadcastTransport: (wire?: string) => Transport };
 
 async function loadCrossTab(): Promise<CrossTabCopy> {
   copies += 1;
-  return import(/* @vite-ignore */ `${resolve(DIST, CROSS_TAB_PATH)}?copy=${copies}`);
+  return load(CROSS_TAB_PATH);
 }
 
-const runInitScript = (): void => new Function(SCRIPT)();
+const runScript = (): void => new Function(SCRIPT)();
 
 type Page = { __NF_BUS__: unknown; firstBus: unknown };
 
@@ -68,6 +85,40 @@ describe('the published bundles', () => {
     delete globalThis.__NF_BUS__;
   });
 
+  it('maps each entry to files that exist', () => {
+    const { exports } = manifest();
+    const entry = (name: string) => ({
+      types: `./types/${name}.d.ts`,
+      import: `./${FESM}-${name}.mjs`,
+      default: `./${FESM}-${name}.mjs`,
+    });
+
+    expect(exports).toEqual({
+      './package.json': { default: './package.json' },
+      '.': {
+        types: './types/index.d.ts',
+        import: `./${FESM}.mjs`,
+        default: `./${FESM}.mjs`,
+      },
+      './domain': entry('domain'),
+      './internal': entry('internal'),
+      './quickstart': entry('quickstart'),
+      './transport/cross-tab': {
+        types: './types/transport/cross-tab.d.ts',
+        import: `./${CROSS_TAB_PATH}`,
+        default: `./${CROSS_TAB_PATH}`,
+      },
+      './quickstart.js': { default: './quickstart.js' },
+    });
+    Object.values(exports)
+      .flatMap(Object.values)
+      .forEach(file => expect(existsSync(resolve(DIST, file)), file).toBe(true));
+  });
+
+  it('lists exactly the quickstart files as side effects', () => {
+    expect(manifest().sideEffects).toEqual([`./${FESM}-quickstart.mjs`, './quickstart.js']);
+  });
+
   it('loads each copy as its own module instance', async () => {
     const a = await loadCopy();
     const b = await loadCopy();
@@ -76,17 +127,81 @@ describe('the published bundles', () => {
     expect(a.bus).not.toBe(b.bus);
   });
 
-  it('installs nothing on import', async () => {
-    await loadCopy();
+  it('installs nothing on import or use', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { bus } = await loadCopy();
+
+    bus.emit('a', 1);
 
     expect(globalThis.__NF_BUS__).toBeUndefined();
+    expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is installed/);
+  });
+
+  describe('./quickstart', () => {
+    it('installs a bus that every copy then uses', async () => {
+      await quickstart();
+      const installed = globalThis.__NF_BUS__;
+      const { bus, getNFBus } = await loadCopy();
+
+      bus.emit('a', 1);
+
+      expect(installed?.peek('a')).toBe(1);
+      expect(getNFBus()).toBe(installed);
+    });
+
+    it('keeps the first bus when a second copy runs its quickstart', async () => {
+      await quickstart();
+      const first = globalThis.__NF_BUS__;
+      first?.emit('a', 1);
+
+      await quickstart();
+
+      expect(globalThis.__NF_BUS__).toBe(first);
+      expect(globalThis.__NF_BUS__?.peek('a')).toBe(1);
+    });
+  });
+
+  describe('./internal', () => {
+    it('installs into and reads a custom location, which connect then uses', async () => {
+      const { connect, createBus, getNFBus, installNFBus } = await loadCopy();
+      const loc = {};
+      const created = createBus();
+      const sent: unknown[] = [];
+      const transport = { name: 't', send: (e: unknown) => sent.push(e), listen: () => () => {} };
+
+      expect(installNFBus(created, loc)).toBe(created);
+      expect(installNFBus(createBus(), loc)).toBe(created);
+      const connection = connect(transport, ['a'], { bus: getNFBus(loc) });
+      created.emit('a', 1);
+      connection?.close();
+
+      expect(getNFBus(loc)).toBe(created);
+      expect(sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
+      expect(globalThis.__NF_BUS__).toBeUndefined();
+    });
+
+    it('keeps a bus another copy installed', async () => {
+      const a = await loadCopy();
+      const b = await loadCopy();
+      const first = a.installNFBus(a.createBus());
+
+      expect(b.installNFBus(b.createBus())).toBe(first);
+    });
+  });
+
+  // No detection: a foreign value is used as is.
+  it('fails on use when the key holds something that is not a bus', async () => {
+    (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = { protocol: 1 };
+    const { bus } = await loadCopy();
+
+    expect(() => bus.emit('a', 1)).toThrow(TypeError);
   });
 
   it.each([
     ['the first copy', 0],
     ['the second copy', 1],
   ])('shares the installed bus between two copies when %s emits first', async (_, first) => {
-    runInitScript();
+    runScript();
     const pair = [await loadCopy(), await loadCopy()];
     const [producer, consumer] = [pair[first]!.bus, pair[1 - first]!.bus];
 
@@ -101,7 +216,7 @@ describe('the published bundles', () => {
   });
 
   it('delivers the producer’s exact reference across copies, functions included', async () => {
-    runInitScript();
+    runScript();
     const a = await loadCopy();
     const b = await loadCopy();
     const loaders = { loadRemoteModule: () => 'module' };
@@ -114,7 +229,7 @@ describe('the published bundles', () => {
   });
 
   it('keeps a command emitted with retain: false out of a later copy’s replay', async () => {
-    runInitScript();
+    runScript();
     const a = await loadCopy();
     const b = await loadCopy();
     const live: unknown[] = [];
@@ -147,9 +262,9 @@ describe('the published bundles', () => {
     expect(createBus().version).toBe(version);
   });
 
-  describe('init-bus.js', () => {
+  describe('quickstart.js', () => {
     it('installs the bus that a later ESM copy then uses', async () => {
-      runInitScript();
+      runScript();
       const installed = globalThis.__NF_BUS__;
       const { bus } = await loadCopy();
 
@@ -162,10 +277,10 @@ describe('the published bundles', () => {
     });
 
     it('keeps a bus installed before it', async () => {
-      const installed = (await loadCopy()).createBus();
-      globalThis.__NF_BUS__ = installed;
+      const { createBus, installNFBus } = await loadCopy();
+      const installed = installNFBus(createBus());
 
-      expect(runInitScript).not.toThrow();
+      expect(runScript).not.toThrow();
       expect(globalThis.__NF_BUS__).toBe(installed);
     });
 
@@ -236,28 +351,12 @@ describe('the published bundles', () => {
       ports.length = 0;
     });
 
-    it('is in the exports map, and every path it names exists', () => {
-      const manifest = JSON.parse(readFileSync(resolve(DIST, 'package.json'), 'utf8')) as {
-        exports: Record<string, Record<string, string>>;
-      };
-      const entry = manifest.exports['./transport/cross-tab']!;
-
-      expect(entry).toEqual({
-        types: './types/transport/cross-tab.d.ts',
-        import: `./${CROSS_TAB_PATH}`,
-        default: `./${CROSS_TAB_PATH}`,
-      });
-      Object.values(entry).forEach(file =>
-        expect(existsSync(resolve(DIST, file)), file).toBe(true)
-      );
-    });
-
     // Two copies of the package each connect broadcastTransport() to the page bus: the transport
     // name is the cross-copy contract that keeps the second from doubling every message. A
     // private bus stands in for the other tab.
     it('forwards each value once when two copies connect it on the page', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      runInitScript();
+      runScript();
       const channel = 'test:cross-tab';
       const [one, two] = [await loadCopy(), await loadCopy()];
       const [tabsOne, tabsTwo] = [await loadCrossTab(), await loadCrossTab()];

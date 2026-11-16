@@ -1,8 +1,10 @@
-// connect, tap and the ./transport/cross-tab subpath, imported by package name like an app would.
+// connect, tap, ./internal and the ./transport/cross-tab subpath, imported by package name like an
+// app would.
+import '@softarc/native-federation-communication/quickstart';
 import {
   bus,
   connect,
-  createBus,
+  type Bus,
   type Connection,
   type ConnectOptions,
   type Envelope,
@@ -11,12 +13,23 @@ import {
   type Transport,
 } from '@softarc/native-federation-communication';
 import type * as domain from '@softarc/native-federation-communication/domain';
+import {
+  createBus,
+  getNFBus,
+  installNFBus,
+} from '@softarc/native-federation-communication/internal';
 import { broadcastTransport } from '@softarc/native-federation-communication/transport/cross-tab';
 
 export const tabs: Connection | undefined = connect(broadcastTransport(), ['cart:count']);
 connect(broadcastTransport('my-app'), ['cart:count'], { bus });
 connect(broadcastTransport(), ['cart:count'], { bus: createBus() });
 connect(broadcastTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
+
+// A custom location is any object; getNFBus hands its bus to connect.
+const loc = {};
+export const installed: Bus = installNFBus(createBus(), loc);
+export const found: Bus | undefined = getNFBus(loc);
+connect(broadcastTransport(), ['cart:count'], { bus: found });
 tabs?.replay();
 tabs?.close();
 // @ts-expect-error connect returns undefined when refused
@@ -54,6 +67,7 @@ tap?.emit('cart:count', 1, { retain: false });
 tap?.replay();
 
 // The types from both entries are the same types.
+export const viaDomainBus: domain.Bus = bus;
 export const options: domain.ConnectOptions = {} satisfies ConnectOptions;
 export const viaDomain: domain.Connection | undefined = tabs;
 export const domainTap: domain.Tap | undefined = tap;

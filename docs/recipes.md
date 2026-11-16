@@ -138,7 +138,7 @@ each call to the current request's own bus:
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createBus } from '@softarc/native-federation-communication';
+import { createBus } from '@softarc/native-federation-communication/internal';
 
 const requests = new AsyncLocalStorage();
 
@@ -268,7 +268,7 @@ App code imports `bus`, which reads `globalThis.__NF_BUS__` on every call. Repla
 no DOM environment is needed:
 
 ```js
-import { createBus } from '@softarc/native-federation-communication';
+import { createBus } from '@softarc/native-federation-communication/internal';
 
 beforeEach(() => {
   vi.stubGlobal('__NF_BUS__', createBus());

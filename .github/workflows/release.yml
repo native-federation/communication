@@ -78,7 +78,7 @@ jobs:
           echo "tgz=$TGZ" >> "$GITHUB_OUTPUT"
 
           tar -tzf "$TGZ" | sort > out/contents.txt
-          UNEXPECTED=$(grep -vE '^package/(package\.json|README\.md|LICENSE\.md|init-bus\.js|fesm2022/.+|types/.+)$' out/contents.txt || true)
+          UNEXPECTED=$(grep -vE '^package/(package\.json|README\.md|LICENSE\.md|quickstart\.js|fesm2022/.+|types/.+)$' out/contents.txt || true)
           if [ -n "$UNEXPECTED" ]; then
             echo "::error::Unexpected files in tarball:"; echo "$UNEXPECTED"; exit 1
           fi

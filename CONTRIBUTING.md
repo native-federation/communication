@@ -15,12 +15,14 @@ The library is deliberately small. The object on `globalThis.__NF_BUS__` is the 
 ## Source Code Organization
 
 ```
-src/index.ts                   '.': createBus, bus and the types
+src/index.ts                   '.': bus, connect and the types
 src/domain.ts                  './domain': the types only
-src/init-bus.ts                './init-bus.js': installs the bus from a script tag
+src/internal.ts                './internal': createBus, getNFBus and installNFBus
+src/quickstart.ts              './quickstart' and './quickstart.js': installs a bus, nothing else
+src/transport/cross-tab.ts     './transport/cross-tab': broadcastTransport
 src/lib/domain/bus/            the contracts (*.contract.ts) and their barrel
 src/lib/bus/create-bus.ts      the bus itself
-src/lib/global/global-bus.ts   finding or installing the page's bus
+src/lib/global/global-bus.ts   reading and installing __NF_BUS__, and the bus facade
 test/                          tests against the build (test/.dist, built by global-setup.ts)
 test/recipes/                  the plain-JS recipes from docs/recipes.md, run by test/recipes.spec.ts
 docs/                          user documentation

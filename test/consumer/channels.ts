@@ -1,10 +1,10 @@
 // Type-checked against the built d.ts, imported by package name like an app would.
 import {
   bus,
-  createBus,
   type Bus,
   type ChannelValue as MainChannelValue,
 } from '@softarc/native-federation-communication';
+import { createBus } from '@softarc/native-federation-communication/internal';
 import type { ChannelValue } from '@softarc/native-federation-communication/domain';
 
 declare module '@softarc/native-federation-communication' {

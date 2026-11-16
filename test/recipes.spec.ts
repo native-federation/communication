@@ -204,7 +204,8 @@ describe('the request bus recipe', () => {
   it('is a bus for every copy of the package', async () => {
     const { installRequestBus, withRequestBus } = await recipe('request-bus');
     installRequestBus();
-    const { bus, createBus } = await import(pkg);
+    const { bus } = await import(pkg);
+    const { createBus } = await import(`${pkg}/internal`);
 
     withRequestBus(() => {
       bus.emit('recipe:user', 'a');

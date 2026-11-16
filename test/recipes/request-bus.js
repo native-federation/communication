@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createBus } from '@softarc/native-federation-communication';
+import { createBus } from '@softarc/native-federation-communication/internal';
 
 const requests = new AsyncLocalStorage();
 
