@@ -37,7 +37,7 @@ Load `quickstart.js` as a classic script, before any script that uses the bus:
 
 ```html
 <script
-  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.1/quickstart.js"
+  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.2/quickstart.js"
   integrity="sha384-HASH"
   crossorigin="anonymous"
 ></script>
