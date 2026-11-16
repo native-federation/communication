@@ -1,25 +1,13 @@
 export const noop = (): void => {};
 
-export function assertChannel(channel: unknown): void {
-  if (typeof channel !== 'string') {
+function assertType(value: unknown, type: 'string' | 'function', what: string): void {
+  if (typeof value !== type) {
     throw new TypeError(
-      `[native-federation-communication] A channel must be a string, got ${typeof channel}.`
+      `[native-federation-communication] ${what} must be a ${type}, got ${typeof value}.`
     );
   }
 }
 
-export function assertListener(listener: unknown): void {
-  if (typeof listener !== 'function') {
-    throw new TypeError(
-      `[native-federation-communication] A listener must be a function, got ${typeof listener}.`
-    );
-  }
-}
-
-export function assertTapName(name: unknown): void {
-  if (typeof name !== 'string') {
-    throw new TypeError(
-      `[native-federation-communication] A tap name must be a string, got ${typeof name}.`
-    );
-  }
-}
+export const assertChannel = (channel: unknown) => assertType(channel, 'string', 'A channel');
+export const assertListener = (listener: unknown) => assertType(listener, 'function', 'A listener');
+export const assertTapName = (name: unknown) => assertType(name, 'string', 'A tap name');
