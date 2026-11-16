@@ -1,5 +1,26 @@
 import { createBus } from '../bus/create-bus.js';
+import { connect } from '../connect/connect.js';
+import type { TapObserver } from '../domain/bus/bus.contract.js';
 import { busFrom } from './bus-from.js';
+
+// A bus whose methods need `this`: a private field throws when a method is called unbound.
+class ClassBus implements NativeFederationBus {
+  readonly #inner = createBus();
+  readonly protocol = 1;
+  readonly version = this.#inner.version;
+  emit(channel: string, value: unknown) {
+    this.#inner.emit(channel, value);
+  }
+  on(channel: string, listener: (value: unknown) => void) {
+    return this.#inner.on(channel, listener);
+  }
+  peek(channel: string) {
+    return this.#inner.peek(channel);
+  }
+  tap(name: string, observer: TapObserver) {
+    return this.#inner.tap!(name, observer);
+  }
+}
 
 describe('busFrom', () => {
   let warn: ReturnType<typeof vi.spyOn>;
@@ -57,5 +78,21 @@ describe('busFrom', () => {
     expect(listener).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is available here, so this call is dropped/);
+  });
+
+  it('calls tap as a method of the bus, so a class-based bus can be tapped and connected', () => {
+    const source = new ClassBus();
+    const bus = busFrom(() => source);
+    const seen: unknown[] = [];
+    const sent: unknown[] = [];
+    const transport = { name: 't', send: (e: unknown) => sent.push(e), listen: () => () => {} };
+
+    bus.tap?.('logger', ({ value }) => seen.push(value));
+    const connection = connect(transport, ['a'], { bus });
+    bus.emit('a', 1);
+    connection?.close();
+
+    expect(seen).toEqual([1]);
+    expect(sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
   });
 });

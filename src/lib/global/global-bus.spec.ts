@@ -252,8 +252,9 @@ describe('the global bus', () => {
 
         const tap = vi.fn();
         globalThis.__NF_BUS__ = { ...createBusLike(), tap };
+        bus.tap?.('t', () => {});
 
-        expect(bus.tap).toBe(tap);
+        expect(tap).toHaveBeenCalledOnce();
       });
     });
   });
