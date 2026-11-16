@@ -13,7 +13,8 @@ optional.
 npm install @softarc/native-federation-communication
 ```
 
-The host installs the bus once, before anything uses it, for example at the top of its `main.ts`:
+The host installs the bus once, before anything uses it: as the first import of the module that
+`initFederation` loads (often `bootstrap.ts`), since shared packages resolve only after it:
 
 ```js
 import '@softarc/native-federation-communication/quickstart';

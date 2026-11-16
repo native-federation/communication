@@ -12,8 +12,10 @@ TypeScript is optional; to check channel values, see [Typing](./typing.md).
 npm install @softarc/native-federation-communication
 ```
 
-The host installs the bus once, before any code uses it. Put the import at the top of its entry file,
-such as `main.ts`:
+The host installs the bus once, before any code uses it. Make it the first import of the module that
+`initFederation` loads, often `bootstrap.ts`: in a Native Federation host, shared packages such as
+this one resolve only after `initFederation`, so `main.ts` is too early. The `quickstart.js` script
+tag works anywhere.
 
 ```js
 import '@softarc/native-federation-communication/quickstart';

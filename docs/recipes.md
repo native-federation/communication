@@ -178,15 +178,15 @@ server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 `installRequestBus` throws when something installed a bus first, since every request would share
 that one. Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share
 the request's bus, across `await` too. A call outside a request is checked, then dropped with one
-warning. With a browser and a server entry, keep the `/quickstart` import in the browser one, such as
-`main.ts`, and call `installRequestBus()` from the server one.
+warning. With a browser and a server entry, keep the `/quickstart` import in the browser one (in a
+federated host, its `bootstrap.ts`), and call `installRequestBus()` from the server one.
 
 ## React Native and WebView
 
 React Native has a bus of its own, and so has each page in a `react-native-webview`. Bridge them with
 [`connect`](./api.md#connecttransport-channels-options) and one [transport](./api.md#transports) per
-side. Each side installs its bus once, at the top of its entry file (the app's `index.js`, the page's
-`main.ts`), with `import '@softarc/native-federation-communication/quickstart';`, and imports `bus` and
+side. Each side installs its bus once, first thing in its entry (the app's `index.js`; in a federated
+page, the module `initFederation` loads), with `import '@softarc/native-federation-communication/quickstart';`, and imports `bus` and
 `connect` from the main entry. `./transport/cross-tab` isn't needed, and Metro resolves the package's
 `exports` by default from React Native 0.79.
 
