@@ -65,7 +65,7 @@ describe('broadcastChannelTransport', () => {
 
   describe('name', () => {
     it('is broadcast: plus the default wire', () => {
-      expect(broadcastChannelTransport().name).toBe('broadcast:native-federation-communication');
+      expect(broadcastChannelTransport().name).toBe('broadcast:native-federation-communication/1');
     });
 
     it('is broadcast: plus a given wire', () => {

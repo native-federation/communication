@@ -2,7 +2,7 @@ import type { Envelope } from '../domain/bus/bus.contract.js';
 import type { Transport } from '../domain/connect/connect.contract.js';
 import { noop } from '../bus/arguments.js';
 
-export function broadcastChannelTransport(wire = 'native-federation-communication'): Transport {
+export function broadcastChannelTransport(wire = 'native-federation-communication/1'): Transport {
   let port: BroadcastChannel | undefined;
   return {
     name: `broadcast:${wire}`,

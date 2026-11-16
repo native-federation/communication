@@ -53,7 +53,7 @@ Every copy's `broadcastChannelTransport()` has the same name, so a second `conne
 `undefined` and its channels are not bridged. List every channel in the host's one `connectTransport`. If
 the host calls `close()`, nobody takes over; connect again.
 
-All tabs share one wire, `native-federation-communication`. A private bus from `createBus()` (in
+All tabs share one wire, `native-federation-communication/1`. A private bus from `createBus()` (in
 `/setup`) connected with `{ bus }` on that wire cross-talks with the page bus, so give it its own:
 `broadcastChannelTransport('my-tests')`.
 

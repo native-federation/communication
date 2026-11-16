@@ -38,8 +38,8 @@ The frozen object in `__NF_BUS__` is the contract between old and new copies:
 Two more contracts are shared by copies of the [cross-tab](./cross-tab.md) transport, and changing
 either needs a new wire name:
 
-- the `BroadcastChannel` name `native-federation-communication`, which also names the transport
-  `broadcast:native-federation-communication`, so a bus connects it once;
+- the `BroadcastChannel` name `native-federation-communication/1`, which also names the transport
+  `broadcast:native-federation-communication/1`, so a bus connects it once;
 - the envelope `{ channel: string, value: unknown, retain: boolean }`, which is also what a tap
   listener receives.
 
