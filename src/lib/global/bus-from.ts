@@ -1,4 +1,4 @@
-import type { Bus, TapObserver } from '../domain/bus/bus.contract.js';
+import type { Bus, TapListener } from '../domain/bus/bus.contract.js';
 import { assertChannel, assertListener, noop } from '../bus/arguments.js';
 import { VERSION } from '../bus/create-bus.js';
 
@@ -23,8 +23,8 @@ const inert: Bus = {
   peek: dropped,
 };
 
-export function busFrom(get: () => NativeFederationBus | undefined): Bus {
-  const current = () => (get() ?? inert) as Bus;
+export function busFrom(getBus: () => NativeFederationBus | undefined): Bus {
+  const current = () => (getBus() ?? inert) as Bus;
   return Object.freeze({
     get protocol() {
       return current().protocol;
@@ -38,7 +38,7 @@ export function busFrom(get: () => NativeFederationBus | undefined): Bus {
     // Still undefined when the bus has no tap, so callers can feature-detect with `bus.tap?.()`.
     get tap() {
       const resolved = current();
-      return resolved.tap && ((name: string, observer: TapObserver) => resolved.tap!(name, observer));
+      return resolved.tap && ((name: string, listener: TapListener) => resolved.tap!(name, listener));
     },
   } satisfies Bus);
 }

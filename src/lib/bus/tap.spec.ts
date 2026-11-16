@@ -1,12 +1,12 @@
 import { stubReportError } from '../../../test/helpers.js';
-import type { Bus, Tap, TapObserver } from '../domain/bus/bus.contract.js';
+import type { Bus, Tap, TapListener } from '../domain/bus/bus.contract.js';
 import { createBus } from './create-bus.js';
 
 type Seen = [channel: string, value: unknown, retain: boolean];
 
 // tap is optional on Bus (an older copy may serve the page), but createBus() always has it.
-function openTap(bus: Bus, name: string, observer: TapObserver = () => {}): Tap {
-  const tap = bus.tap!(name, observer);
+function openTap(bus: Bus, name: string, listener: TapListener = () => {}): Tap {
+  const tap = bus.tap!(name, listener);
   expect(tap, `tap "${name}" was refused`).toBeDefined();
   return tap!;
 }
@@ -33,9 +33,9 @@ describe('bus.tap', () => {
       expect(() => bus.tap!(name as never, () => {})).toThrow(/A tap name must be a string/);
     });
 
-    it.each([undefined, 'fn', {}, null])('rejects %s as an observer', observer => {
-      expect(() => bus.tap!('t', observer as never)).toThrow(TypeError);
-      expect(() => bus.tap!('t', observer as never)).toThrow(/must be a function/);
+    it.each([undefined, 'fn', {}, null])('rejects %s as a tap listener', listener => {
+      expect(() => bus.tap!('t', listener as never)).toThrow(TypeError);
+      expect(() => bus.tap!('t', listener as never)).toThrow(/must be a function/);
     });
 
     it('refuses a second live tap with the same name, silently', () => {
@@ -51,8 +51,8 @@ describe('bus.tap', () => {
       expect(warn).not.toHaveBeenCalled();
     });
 
-    // Each observer gets its own envelope, so one tap cannot change what the next sees.
-    it('gives every observer its own envelope', () => {
+    // Each listener gets its own envelope, so one tap cannot change what the next sees.
+    it('gives every tap listener its own envelope', () => {
       openTap(bus, 'meddler', envelope => {
         envelope.channel = 'b';
         envelope.value = 2;
@@ -106,13 +106,13 @@ describe('bus.tap', () => {
     });
 
     it('passes a fresh envelope, not the caller’s options', () => {
-      const observer = vi.fn();
-      openTap(bus, 't', observer);
+      const listener = vi.fn();
+      openTap(bus, 't', listener);
       const options = { retain: true, extra: 1 } as never;
 
       bus.emit('a', 1, options);
 
-      expect(observer.mock.calls[0]![0]).toStrictEqual({ channel: 'a', value: 1, retain: true });
+      expect(listener.mock.calls[0]![0]).toStrictEqual({ channel: 'a', value: 1, retain: true });
     });
 
     it('calls every live tap', () => {
@@ -132,7 +132,7 @@ describe('bus.tap', () => {
       expect(seen).toEqual([]);
     });
 
-    it('runs observers after the emit’s listeners, in the same task', () => {
+    it('runs tap listeners after the emit’s listeners, in the same task', () => {
       const log: string[] = [];
       bus.on('a', () => log.push('listener 1'));
       openTap(bus, 't', () => log.push('tap'));
@@ -175,7 +175,7 @@ describe('bus.tap', () => {
       ]);
     });
 
-    it('sees an emit made by an observer after the one it is observing', () => {
+    it('sees an emit made by a tap listener after the one it is observing', () => {
       const log: string[] = [];
       bus.on('b', value => log.push(`listener b:${value}`));
       openTap(bus, 'echo', ({ channel, value }) => {
@@ -239,7 +239,7 @@ describe('bus.tap', () => {
     });
   });
 
-  describe('a throwing observer', () => {
+  describe('a throwing tap listener', () => {
     it('is reported, and other taps and listeners still run', () => {
       const reportError = stubReportError();
       const error = new Error('boom');
@@ -389,13 +389,13 @@ describe('bus.tap', () => {
     it('passes the exact retained reference', () => {
       const value = { id: 1 };
       bus.emit('a', value);
-      const observer = vi.fn();
-      const tap = openTap(bus, 't', observer);
+      const listener = vi.fn();
+      const tap = openTap(bus, 't', listener);
 
       tap.replay();
 
-      expect(observer).toHaveBeenCalledWith({ channel: 'a', value, retain: true });
-      expect(observer.mock.calls[0]![0].value).toBe(value);
+      expect(listener).toHaveBeenCalledWith({ channel: 'a', value, retain: true });
+      expect(listener.mock.calls[0]![0].value).toBe(value);
     });
 
     it('does not deliver to listeners or change what is retained', () => {
@@ -423,9 +423,9 @@ describe('bus.tap', () => {
       ]);
     });
 
-    // Like on()'s replay, it goes through the queue: what the observer emits meanwhile waits until
+    // Like on()'s replay, it goes through the queue: what the tap listener emits meanwhile waits until
     // the replay is done.
-    it('holds emits the observer makes until the replay has finished', () => {
+    it('holds emits the tap listener makes until the replay has finished', () => {
       bus.emit('a', 1);
       bus.emit('b', 2);
       const log: string[] = [];
@@ -440,7 +440,7 @@ describe('bus.tap', () => {
       expect(log).toEqual(['tap a:1', 'tap b:2', 'listener c:from replay', 'tap c:from replay']);
     });
 
-    it('reports a throwing observer and continues with the next channel', () => {
+    it('reports a throwing tap listener and continues with the next channel', () => {
       const reportError = stubReportError();
       const error = new Error('boom');
       bus.emit('a', 1);
@@ -459,7 +459,7 @@ describe('bus.tap', () => {
   });
 
   describe('handle.close', () => {
-    it('stops the observer', () => {
+    it('stops the tap listener', () => {
       const { seen, tap } = record(bus, 't');
 
       tap.close();
@@ -489,16 +489,16 @@ describe('bus.tap', () => {
       expect(bus.tap!('t', () => {})).toBeUndefined();
     });
 
-    // The handle must not find its tap by observer: reopening with the same function is a new tap.
-    it('leaves a later tap with the same observer alone', () => {
+    // The handle must not find its tap by listener: reopening with the same function is a new tap.
+    it('leaves a later tap with the same listener alone', () => {
       const seen: unknown[] = [];
-      const observer: TapObserver = ({ channel, value }) => seen.push([channel, value]);
+      const tapListener: TapListener = ({ channel, value }) => seen.push([channel, value]);
       const listener = vi.fn();
       bus.emit('retained', 0);
       bus.on('a', listener);
-      const old = openTap(bus, 't', observer);
+      const old = openTap(bus, 't', tapListener);
       old.close();
-      openTap(bus, 't', observer);
+      openTap(bus, 't', tapListener);
 
       old.close();
       old.emit('a', 'stale');

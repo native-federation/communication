@@ -8,6 +8,6 @@ export type {
   Listener,
   OnOptions,
   Tap,
-  TapObserver,
+  TapListener,
   Unsubscribe,
 } from './bus.contract.js';

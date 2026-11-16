@@ -223,15 +223,15 @@ describe('the global bus', () => {
         expect(installed.tap?.('t', () => {})).toBeUndefined();
       });
 
-      it('passes name and observer through to a bus installed by another copy', async () => {
+      it('passes name and listener through to a bus installed by another copy', async () => {
         const tap = { emit: vi.fn(), replay: vi.fn(), close: vi.fn() };
         const installed = { ...createBusLike(), tap: vi.fn(() => tap) };
         globalThis.__NF_BUS__ = installed;
         const { bus } = await loadCopy();
-        const observer = vi.fn();
+        const listener = vi.fn();
 
-        expect(bus.tap?.('t', observer)).toBe(tap);
-        expect(installed.tap).toHaveBeenCalledWith('t', observer);
+        expect(bus.tap?.('t', listener)).toBe(tap);
+        expect(installed.tap).toHaveBeenCalledWith('t', listener);
       });
 
       // An older copy installed the bus before tap existed.

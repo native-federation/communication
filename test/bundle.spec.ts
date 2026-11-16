@@ -32,7 +32,7 @@ type Copy = {
     options?: ConnectTransportOptions
   ) => Connection | undefined;
   createBus: () => Bus;
-  busFrom: (get: () => NativeFederationBus | undefined) => Bus;
+  busFrom: (getBus: () => NativeFederationBus | undefined) => Bus;
   getNFBus: () => Bus | undefined;
   installNFBus: (bus: Bus) => Bus;
 };

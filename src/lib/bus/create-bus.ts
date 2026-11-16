@@ -4,7 +4,7 @@ import type {
   Listener,
   OnOptions,
   Tap,
-  TapObserver,
+  TapListener,
   Unsubscribe,
 } from '../domain/bus/bus.contract.js';
 import { assertChannel, assertListener, assertTapName, noop } from './arguments.js';
@@ -18,7 +18,7 @@ type Task = () => void;
 type State = {
   retained: Map<string, unknown>;
   subs: Map<string, Set<Sub>>;
-  taps: Map<string, TapObserver>;
+  taps: Map<string, TapListener>;
   hold: (step: Task) => void;
   enqueue: (task: Task) => void;
 };
@@ -47,7 +47,7 @@ function createQueue() {
 }
 
 // Taps observe after the listeners, in the same task, so they see emits in delivery order.
-function emitter({ retained, subs, taps, enqueue }: State, source?: TapObserver) {
+function emitter({ retained, subs, taps, enqueue }: State, source?: TapListener) {
   return (channel: string, value: unknown, options?: EmitOptions): void => {
     assertChannel(channel);
     const retain = enabled(options?.retain);
@@ -98,12 +98,12 @@ function subscriber(state: State) {
 
 function opener(state: State) {
   const { retained, taps, hold } = state;
-  return (name: string, observer: TapObserver): Tap | undefined => {
+  return (name: string, listener: TapListener): Tap | undefined => {
     assertTapName(name);
-    assertListener(observer);
+    assertListener(listener);
     if (taps.has(name)) return undefined;
     // A fresh function per tap, so a closed handle never acts on a later tap with the same name.
-    const own: TapObserver = envelope => observer(envelope);
+    const own: TapListener = envelope => listener(envelope);
     taps.set(name, own);
     const live = (): boolean => taps.get(name) === own;
     const emit = emitter(state, own);

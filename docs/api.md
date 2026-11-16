@@ -34,7 +34,7 @@ import {
 - `installNFBus(bus)` installs `bus` at `globalThis.__NF_BUS__` if nothing is there, and returns
   whichever bus is there afterwards. It never replaces a bus that others use. The slot is read-only,
   so a stray assignment throws in strict mode instead of splitting the page.
-- `busFrom(get)` returns a frozen bus that calls `get()` on every call and uses the bus it returns,
+- `busFrom(getBus)` returns a frozen bus that calls `getBus()` on every call and uses the bus it returns,
   or the [inert](#without-an-installed-bus) bus when that is `undefined`. `protocol`, `version` and
   `tap` are read the same way. `bus` is `busFrom(getNFBus)`.
 
@@ -70,7 +70,7 @@ type Bus = {
     options?: { signal?: AbortSignal; replay?: boolean }
   ): () => void;
   peek(channel: string): unknown;
-  tap?(name: string, observer: TapObserver): Tap | undefined; // see tap below
+  tap?(name: string, listener: TapListener): Tap | undefined; // see tap below
 };
 ```
 
@@ -100,14 +100,14 @@ Subscribes `listener` and returns `off`, which unsubscribes it and is safe to ca
 
 Returns the retained value, or `undefined`. A retained `undefined` looks the same as none.
 
-## `tap(name, observer)`
+## `tap(name, listener)`
 
-The extension point for bridges: `observer` sees every emit on every channel. To bridge channels, use
+The extension point for bridges: `listener` sees every emit on every channel. To bridge channels, use
 [`connectTransport`](#connecttransporttransport-channels-options), which is built on it.
 
 ```ts
 type Envelope = { channel: string; value: unknown; retain: boolean };
-type TapObserver = (envelope: Envelope) => void;
+type TapListener = (envelope: Envelope) => void;
 type Tap = {
   emit(channel: string, value: unknown, options?: { retain?: boolean }): void;
   replay(): void;
@@ -122,12 +122,12 @@ const tap = bus.tap?.('logger', ({ channel, value, retain }) => log(channel, val
 - `tap` is optional on the bus type, because an older copy may have installed the page bus without it.
   Call it as `bus.tap?.(…)`.
 - It returns `undefined` if a tap with that `name` is open on this bus, and throws a `TypeError` if
-  `name` is not a string or `observer` not a function.
-- The observer runs after the emit's listeners, so it sees values in the order they do, with the emit's
-  `retain`. A throwing observer is reported like a throwing listener.
-- `tap.emit` is `bus.emit`, except that this tap's own observer doesn't see it. Emits that listeners
+  `name` is not a string or `listener` not a function.
+- The tap listener runs after the emit's listeners, so it sees values in the order they do, with the emit's
+  `retain`. A throwing tap listener is reported like a throwing listener.
+- `tap.emit` is `bus.emit`, except that this tap's own listener doesn't see it. Emits that listeners
   make in response are ordinary emits.
-- `tap.replay()` calls this observer once per channel with a retained value, a retained `undefined`
+- `tap.replay()` calls this listener once per channel with a retained value, a retained `undefined`
   included, with `retain: true`.
 - `tap.close()` removes the tap and frees its name; `emit` and `replay` then do nothing. It is safe to
   call twice.
@@ -148,7 +148,7 @@ connection?.close(); // stop both directions; safe to call twice
 - Every emit on a listed channel is sent, with its `retain`. Every envelope received for a listed
   channel is emitted on this side and not sent back. Other channels and anything that is not an
   envelope are ignored.
-- `{ bus }` connects another bus, such as one from `createBus()` or `busFrom(get)`, instead of the
+- `{ bus }` connects another bus, such as one from `createBus()` or `busFrom(getBus)`, instead of the
   page bus. An explicit `{ bus: undefined }` is refused like a bus without `tap`, never replaced by
   the page bus.
 - `connectTransport` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
@@ -159,7 +159,7 @@ connection?.close(); // stop both directions; safe to call twice
 
 ### Transports
 
-A transport carries [envelopes](#tapname-observer) to the other side.
+A transport carries [envelopes](#tapname-listener) to the other side.
 [`broadcastChannelTransport`](./cross-tab.md) is built in; [React Native](./recipes.md#react-native-and-webview)
 shows one you write yourself.
 

@@ -9,7 +9,7 @@ import {
   type ConnectTransportOptions,
   type Envelope,
   type Tap,
-  type TapObserver,
+  type TapListener,
   type Transport,
 } from '@softarc/native-federation-communication';
 import type * as domain from '@softarc/native-federation-communication/domain';
@@ -62,14 +62,14 @@ export const nameless: Transport = { send: () => {}, listen: () => () => {} };
 export const envelope: Envelope = { channel: 'a', value: 1 };
 
 // tap is optional, on the typed bus and on the untyped global alike.
-const observer: TapObserver = ({ channel, value, retain }) => console.log(channel, value, retain);
-// @ts-expect-error an observer takes one envelope, not positional arguments
-export const positional: TapObserver = (channel: string, value: unknown) =>
+const listener: TapListener = ({ channel, value, retain }) => console.log(channel, value, retain);
+// @ts-expect-error a tap listener takes one envelope, not positional arguments
+export const positional: TapListener = (channel: string, value: unknown) =>
   console.log(channel, value);
-export const tap: Tap | undefined = bus.tap?.('logger', observer);
-globalThis.__NF_BUS__?.tap?.('logger', observer)?.close();
+export const tap: Tap | undefined = bus.tap?.('logger', listener);
+globalThis.__NF_BUS__?.tap?.('logger', listener)?.close();
 // @ts-expect-error a bus installed by an older copy has no tap, so it must be feature-checked
-bus.tap('logger', observer);
+bus.tap('logger', listener);
 tap?.emit('cart:count', 1, { retain: false });
 tap?.replay();
 
@@ -78,4 +78,4 @@ export const viaDomainBus: domain.Bus = bus;
 export const options: domain.ConnectTransportOptions = {} satisfies ConnectTransportOptions;
 export const viaDomain: domain.Connection | undefined = tabs;
 export const domainTap: domain.Tap | undefined = tap;
-export const domainObserver: domain.TapObserver = observer;
+export const domainListener: domain.TapListener = listener;

@@ -41,7 +41,7 @@ either needs a new wire name:
 - the `BroadcastChannel` name `native-federation-communication`, which also names the transport
   `broadcast:native-federation-communication`, so a bus connects it once;
 - the envelope `{ channel: string, value: unknown, retain: boolean }`, which is also what a tap
-  observer receives.
+  listener receives.
 
 ## Outside a browser
 

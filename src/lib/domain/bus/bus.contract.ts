@@ -10,7 +10,7 @@ export type EmitOptions = { retain?: boolean };
 // replay: false = skip the retained value and receive live values only.
 export type OnOptions = { signal?: AbortSignal; replay?: boolean };
 export type Envelope = { channel: string; value: unknown; retain: boolean };
-export type TapObserver = (envelope: Envelope) => void;
+export type TapListener = (envelope: Envelope) => void;
 export type Tap = {
   emit(channel: string, value: unknown, options?: EmitOptions): void;
   replay(): void;
@@ -29,7 +29,7 @@ export type Bus = {
   ): Unsubscribe;
   peek<K extends ChannelName>(channel: K): ChannelValue<K> | undefined;
   // Optional: the page bus may come from an older copy without it.
-  tap?(name: string, observer: TapObserver): Tap | undefined;
+  tap?(name: string, listener: TapListener): Tap | undefined;
 };
 
 declare global {
@@ -42,7 +42,7 @@ declare global {
     emit(channel: string, value: unknown, options?: EmitOptions): void;
     on(channel: string, listener: (value: unknown) => void, options?: OnOptions): () => void;
     peek(channel: string): unknown;
-    tap?(name: string, observer: TapObserver): Tap | undefined;
+    tap?(name: string, listener: TapListener): Tap | undefined;
   }
   var __NF_BUS__: NativeFederationBus | undefined;
 }

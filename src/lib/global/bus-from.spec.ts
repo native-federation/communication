@@ -1,6 +1,6 @@
 import { createBus } from '../bus/create-bus.js';
 import { connectTransport } from '../connect/connect.js';
-import type { TapObserver } from '../domain/bus/bus.contract.js';
+import type { TapListener } from '../domain/bus/bus.contract.js';
 import { busFrom } from './bus-from.js';
 
 // A bus whose methods need `this`: a private field throws when a method is called unbound.
@@ -17,8 +17,8 @@ class ClassBus implements NativeFederationBus {
   peek(channel: string) {
     return this.#inner.peek(channel);
   }
-  tap(name: string, observer: TapObserver) {
-    return this.#inner.tap!(name, observer);
+  tap(name: string, listener: TapListener) {
+    return this.#inner.tap!(name, listener);
   }
 }
 
@@ -53,8 +53,8 @@ describe('busFrom', () => {
     const first = createBus();
     const second = { ...createBus(), protocol: 2, version: '9.0.0' };
     let current: NativeFederationBus | undefined = first;
-    const get = vi.fn(() => current);
-    const bus = busFrom(get);
+    const getBus = vi.fn(() => current);
+    const bus = busFrom(getBus);
 
     bus.emit('a', 1);
     current = second;
@@ -63,7 +63,7 @@ describe('busFrom', () => {
     expect([first.peek('a'), second.peek('a')]).toEqual([1, 2]);
     expect([bus.protocol, bus.version]).toEqual([2, '9.0.0']);
     expect(bus.peek('a')).toBe(2);
-    expect(get).toHaveBeenCalledTimes(5);
+    expect(getBus).toHaveBeenCalledTimes(5);
   });
 
   it('falls back to the inert bus while the getter returns undefined', () => {
