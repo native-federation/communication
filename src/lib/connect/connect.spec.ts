@@ -1,7 +1,7 @@
 import { stubReportError } from '../../../test/helpers.js';
 import { createBus } from '../bus/create-bus.js';
-import type { Bus } from '../domain/bus/bus.contract.js';
-import type { Connection, Envelope, Transport } from '../domain/connect/connect.contract.js';
+import type { Bus, Envelope } from '../domain/bus/bus.contract.js';
+import type { Connection, Transport } from '../domain/connect/connect.contract.js';
 import { connect } from './connect.js';
 
 type Receive = (envelope: Envelope) => void;
@@ -299,6 +299,17 @@ describe('connect', () => {
         { channel: 'b', value: 2, retain: false },
       ]);
       expect(transport.sent[0]!.value).toBe(value);
+    });
+
+    // The envelope comes from the core as is: nothing from emit's options rides along.
+    it('sends exactly { channel, value, retain }', () => {
+      const bus = createBus();
+      const transport = endpoint();
+      connect(transport, ['a'], { bus });
+
+      bus.emit('a', 1, { retain: false, extra: 1 } as never);
+
+      expect(transport.sent[0]).toStrictEqual({ channel: 'a', value: 1, retain: false });
     });
 
     it('sends nothing for a channel that is not listed', () => {

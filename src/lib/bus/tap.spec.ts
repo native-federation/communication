@@ -14,7 +14,7 @@ function openTap(bus: Bus, name: string, observer: TapObserver = () => {}): Tap 
 // Opens a tap that records every (channel, value, retain) it observes.
 function record(bus: Bus, name: string): { seen: Seen[]; tap: Tap } {
   const seen: Seen[] = [];
-  const tap = openTap(bus, name, (channel, value, { retain }) =>
+  const tap = openTap(bus, name, ({ channel, value, retain }) =>
     seen.push([channel, value, retain])
   );
   return { seen, tap };
@@ -51,10 +51,12 @@ describe('bus.tap', () => {
       expect(warn).not.toHaveBeenCalled();
     });
 
-    // Each observer gets its own `emitted` object, so one tap cannot change what the next sees.
-    it('gives every observer its own emitted object', () => {
-      openTap(bus, 'meddler', (_channel, _value, emitted) => {
-        emitted.retain = false;
+    // Each observer gets its own envelope, so one tap cannot change what the next sees.
+    it('gives every observer its own envelope', () => {
+      openTap(bus, 'meddler', envelope => {
+        envelope.channel = 'b';
+        envelope.value = 2;
+        envelope.retain = false;
       });
       const after = record(bus, 'after');
 
@@ -103,14 +105,14 @@ describe('bus.tap', () => {
       expect(seen[0]![1]).toBe(value);
     });
 
-    it('passes a fresh { retain } object, not the caller’s options', () => {
+    it('passes a fresh envelope, not the caller’s options', () => {
       const observer = vi.fn();
       openTap(bus, 't', observer);
       const options = { retain: true, extra: 1 } as never;
 
       bus.emit('a', 1, options);
 
-      expect(observer.mock.calls[0]![2]).toEqual({ retain: true });
+      expect(observer.mock.calls[0]![0]).toStrictEqual({ channel: 'a', value: 1, retain: true });
     });
 
     it('calls every live tap', () => {
@@ -156,7 +158,7 @@ describe('bus.tap', () => {
         bus.emit('c', 'from b');
       });
       bus.on('c', value => log.push(`listener c:${value}`));
-      openTap(bus, 't', (channel, value) => log.push(`tap ${channel}:${value}`));
+      openTap(bus, 't', ({ channel, value }) => log.push(`tap ${channel}:${value}`));
 
       bus.emit('a', 1);
 
@@ -176,11 +178,11 @@ describe('bus.tap', () => {
     it('sees an emit made by an observer after the one it is observing', () => {
       const log: string[] = [];
       bus.on('b', value => log.push(`listener b:${value}`));
-      openTap(bus, 'echo', (channel, value) => {
+      openTap(bus, 'echo', ({ channel, value }) => {
         log.push(`echo ${channel}:${value}`);
         if (channel === 'a') bus.emit('b', 'from echo');
       });
-      openTap(bus, 'other', (channel, value) => log.push(`other ${channel}:${value}`));
+      openTap(bus, 'other', ({ channel, value }) => log.push(`other ${channel}:${value}`));
 
       bus.emit('a', 1);
 
@@ -217,7 +219,7 @@ describe('bus.tap', () => {
     it('reads the taps live, so a tap opened by a listener sees the emit being delivered', () => {
       const seen: Seen[] = [];
       bus.on('a', () => {
-        openTap(bus, 'late', (channel, value, { retain }) => seen.push([channel, value, retain]));
+        openTap(bus, 'late', ({ channel, value, retain }) => seen.push([channel, value, retain]));
       });
 
       bus.emit('a', 1);
@@ -330,8 +332,8 @@ describe('bus.tap', () => {
 
     it('keeps the order of a re-entrant handle.emit made from a listener', () => {
       const log: string[] = [];
-      const tap = openTap(bus, 't', (channel, value) => log.push(`t ${channel}:${value}`));
-      openTap(bus, 'u', (channel, value) => log.push(`u ${channel}:${value}`));
+      const tap = openTap(bus, 't', ({ channel, value }) => log.push(`t ${channel}:${value}`));
+      openTap(bus, 'u', ({ channel, value }) => log.push(`u ${channel}:${value}`));
       bus.on('a', () => {
         log.push('listener a');
         tap.emit('b', 'via t');
@@ -392,8 +394,8 @@ describe('bus.tap', () => {
 
       tap.replay();
 
-      expect(observer).toHaveBeenCalledWith('a', value, { retain: true });
-      expect(observer.mock.calls[0]![1]).toBe(value);
+      expect(observer).toHaveBeenCalledWith({ channel: 'a', value, retain: true });
+      expect(observer.mock.calls[0]![0].value).toBe(value);
     });
 
     it('does not deliver to listeners or change what is retained', () => {
@@ -428,7 +430,7 @@ describe('bus.tap', () => {
       bus.emit('b', 2);
       const log: string[] = [];
       bus.on('c', value => log.push(`listener c:${value}`), { replay: false });
-      const tap = openTap(bus, 't', (channel, value) => {
+      const tap = openTap(bus, 't', ({ channel, value }) => {
         log.push(`tap ${channel}:${value}`);
         if (channel === 'a') bus.emit('c', 'from replay');
       });
@@ -444,7 +446,7 @@ describe('bus.tap', () => {
       bus.emit('a', 1);
       bus.emit('b', 2);
       const seen: string[] = [];
-      const tap = openTap(bus, 't', channel => {
+      const tap = openTap(bus, 't', ({ channel }) => {
         seen.push(channel);
         if (channel === 'a') throw error;
       });

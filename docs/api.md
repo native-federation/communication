@@ -59,7 +59,8 @@ The extension point for bridges: `observer` sees every emit on every channel. To
 [`connect`](#connecttransport-channels-options), which is built on it.
 
 ```ts
-type TapObserver = (channel: string, value: unknown, emitted: { retain: boolean }) => void;
+type Envelope = { channel: string; value: unknown; retain: boolean };
+type TapObserver = (envelope: Envelope) => void;
 type Tap = {
   emit(channel: string, value: unknown, options?: { retain?: boolean }): void;
   replay(): void;
@@ -68,7 +69,7 @@ type Tap = {
 ```
 
 ```js
-const tap = bus.tap?.('logger', (channel, value, { retain }) => log(channel, value, retain));
+const tap = bus.tap?.('logger', ({ channel, value, retain }) => log(channel, value, retain));
 ```
 
 - `tap` is optional on the bus type, because an older copy may have installed the page bus without it.
@@ -108,11 +109,11 @@ connection.close(); // stop both directions; safe to call twice
 
 ### Transports
 
-A transport carries envelopes to the other side. [`broadcastTransport`](./cross-tab.md) is built in;
-[React Native](./recipes.md#react-native-and-webview) shows one you write yourself.
+A transport carries [envelopes](#tapname-observer) to the other side.
+[`broadcastTransport`](./cross-tab.md) is built in; [React Native](./recipes.md#react-native-and-webview)
+shows one you write yourself.
 
 ```ts
-type Envelope = { channel: string; value: unknown; retain: boolean };
 type Transport = {
   readonly name: string;
   send(envelope: Envelope): void;

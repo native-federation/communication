@@ -1,6 +1,5 @@
-import type { Bus, Unsubscribe } from '../bus/bus.contract.js';
+import type { Bus, Envelope, Unsubscribe } from '../bus/bus.contract.js';
 
-export type Envelope = { channel: string; value: unknown; retain: boolean };
 export type Transport = {
   // Unique per bus: a second connect with the same name is refused.
   readonly name: string;

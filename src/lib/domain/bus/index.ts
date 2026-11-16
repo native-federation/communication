@@ -4,6 +4,7 @@ export type {
   Channels,
   ChannelValue,
   EmitOptions,
+  Envelope,
   Listener,
   OnOptions,
   Tap,

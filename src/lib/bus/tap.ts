@@ -1,4 +1,4 @@
-import type { EmitOptions, Tap, TapObserver } from '../domain/bus/bus.contract.js';
+import type { EmitOptions, Envelope, Tap, TapObserver } from '../domain/bus/bus.contract.js';
 import { assertListener, assertTapName } from './arguments.js';
 import { safely } from './safely.js';
 
@@ -12,13 +12,9 @@ type TapContext = {
   hold: (step: () => void) => void;
 };
 
-export function notifyTaps(
-  taps: Taps,
-  source: TapEntry | undefined,
-  [channel, value, { retain }]: Parameters<TapObserver>
-): void {
+export function notifyTaps(taps: Taps, source: TapEntry | undefined, envelope: Envelope): void {
   taps.forEach(entry => {
-    if (entry !== source) safely(() => entry.observer(channel, value, { retain }));
+    if (entry !== source) safely(() => entry.observer({ ...envelope }));
   });
 }
 
@@ -41,7 +37,9 @@ export function createTap({ taps, emitFrom, retained, hold }: TapContext) {
   const replayTo = ({ observer }: TapEntry): void => {
     const values = retained();
     hold(() =>
-      values.forEach(([name, value]) => safely(() => observer(name, value, { retain: true })))
+      values.forEach(([name, value]) =>
+        safely(() => observer({ channel: name, value, retain: true }))
+      )
     );
   };
 

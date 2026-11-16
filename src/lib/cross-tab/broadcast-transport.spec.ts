@@ -1,7 +1,7 @@
 import { createBus } from '../bus/create-bus.js';
 import { connect } from '../connect/connect.js';
-import type { Bus } from '../domain/bus/bus.contract.js';
-import type { Connection, Envelope, Transport } from '../domain/connect/connect.contract.js';
+import type { Bus, Envelope } from '../domain/bus/bus.contract.js';
+import type { Connection, Transport } from '../domain/connect/connect.contract.js';
 import { noop } from '../bus/arguments.js';
 import { broadcastTransport } from './broadcast-transport.js';
 

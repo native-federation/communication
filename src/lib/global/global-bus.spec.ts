@@ -159,7 +159,7 @@ describe('the page bus', () => {
       const seen: unknown[] = [];
 
       expect(bus.tap).toBeTypeOf('function');
-      const tap = bus.tap!('t', (channel, value) => seen.push([channel, value]));
+      const tap = bus.tap!('t', ({ channel, value }) => seen.push([channel, value]));
       globalThis.__NF_BUS__!.emit('a', 1);
       tap?.emit('b', 2);
       const received: unknown[] = [];

@@ -40,7 +40,10 @@ export const nameless: Transport = { send: () => {}, listen: () => () => {} };
 export const envelope: Envelope = { channel: 'a', value: 1 };
 
 // tap is optional, on the typed bus and on the untyped global alike.
-const observer: TapObserver = (channel, value, { retain }) => console.log(channel, value, retain);
+const observer: TapObserver = ({ channel, value, retain }) => console.log(channel, value, retain);
+// @ts-expect-error an observer takes one envelope, not positional arguments
+export const positional: TapObserver = (channel: string, value: unknown) =>
+  console.log(channel, value);
 export const tap: Tap | undefined = bus.tap?.('logger', observer);
 globalThis.__NF_BUS__?.tap?.('logger', observer)?.close();
 // @ts-expect-error a bus installed by an older copy has no tap, so it must be feature-checked

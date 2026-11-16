@@ -101,7 +101,7 @@ function emitter({ channels, taps, enqueue }: Core) {
       channel.dropIfEmpty();
       enqueue(() => {
         fanOut(subs, channel.subs, value);
-        notifyTaps(taps, source, [name, value, { retain }]);
+        notifyTaps(taps, source, { channel: name, value, retain });
       });
     };
 }

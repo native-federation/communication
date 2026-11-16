@@ -9,7 +9,8 @@ export type Unsubscribe = () => void;
 export type EmitOptions = { retain?: boolean };
 // replay: false = skip the retained value and receive live values only.
 export type OnOptions = { signal?: AbortSignal; replay?: boolean };
-export type TapObserver = (channel: string, value: unknown, emitted: { retain: boolean }) => void;
+export type Envelope = { channel: string; value: unknown; retain: boolean };
+export type TapObserver = (envelope: Envelope) => void;
 export type Tap = {
   emit(channel: string, value: unknown, options?: EmitOptions): void;
   replay(): void;

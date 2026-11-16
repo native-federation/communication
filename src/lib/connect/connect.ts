@@ -1,10 +1,5 @@
-import type { ChannelName, Tap } from '../domain/bus/bus.contract.js';
-import type {
-  Connection,
-  ConnectOptions,
-  Envelope,
-  Transport,
-} from '../domain/connect/connect.contract.js';
+import type { ChannelName, Envelope, Tap } from '../domain/bus/bus.contract.js';
+import type { Connection, ConnectOptions, Transport } from '../domain/connect/connect.contract.js';
 import { assertChannel, noop } from '../bus/arguments.js';
 import { getGlobalBus } from '../global/global-bus.js';
 
@@ -83,8 +78,8 @@ export function connect(
   const listed = new Set<string>(channels);
   const bus = options?.bus ?? getGlobalBus();
   if (!bus.tap) return refuseNoTap();
-  const tap = bus.tap(transport.name, (channel, value, { retain }) => {
-    if (listed.has(channel)) transport.send({ channel, value, retain });
+  const tap = bus.tap(transport.name, envelope => {
+    if (listed.has(envelope.channel)) transport.send(envelope);
   });
   return tap ? link(transport, tap, listed) : refuseTaken(transport.name);
 }
