@@ -50,8 +50,17 @@ function receive(tap: Tap, listed: Set<string>, envelope: unknown): void {
   }
 }
 
+function listen(transport: Transport, tap: Tap, listed: Set<string>): () => void {
+  try {
+    return transport.listen(envelope => receive(tap, listed, envelope));
+  } catch (error) {
+    tap.close();
+    throw error;
+  }
+}
+
 function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
-  const unlisten = transport.listen(envelope => receive(tap, listed, envelope));
+  const unlisten = listen(transport, tap, listed);
   let closed = false;
   return Object.freeze({
     replay: () => tap.replay(),

@@ -120,7 +120,7 @@ type Transport = {
 };
 ```
 
-`Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows four
+`Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows five
 rules:
 
 - **`send` never delivers back to the sender's own side.** An echo would reach its listeners twice.
@@ -128,6 +128,7 @@ rules:
   turns class instances into plain objects and rejects functions.
 - **`name` is unique per bus.** A second `connect` with the same name is refused with a warning, which
   keeps two copies of the same transport from bridging twice.
+- **`listen` may throw; `connect` then closes the tap and rethrows.**
 - **Connections form a tree.** A value received over one connection is sent on by the bus's other
   connections, so one bus can join tabs and a WebView. A cycle sends values around forever.
 

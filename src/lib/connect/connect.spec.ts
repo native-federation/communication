@@ -249,6 +249,28 @@ describe('connect', () => {
       expect(warn).not.toHaveBeenCalled();
     });
 
+    // Without closing the tap, a failed listen would keep sending and hold the name forever.
+    it('rethrows a throwing listen and frees the name for a retry', () => {
+      const bus = createBus();
+      const error = new Error('cannot listen');
+      const broken: Endpoint = {
+        ...endpoint(),
+        listen: vi.fn(() => {
+          throw error;
+        }),
+      };
+
+      expect(() => connect(broken, ['a'], { bus })).toThrow(error);
+      bus.emit('a', 1);
+      const retry = endpoint();
+      connect(retry, ['a'], { bus });
+      bus.emit('a', 2);
+
+      expect(broken.sent).toEqual([]);
+      expect(warn).not.toHaveBeenCalled();
+      expect(retry.sent).toEqual([{ channel: 'a', value: 2, retain: true }]);
+    });
+
     it('is accepted again once the first connection is closed', () => {
       const bus = createBus();
       connect(endpoint(), ['a'], { bus }).close();
