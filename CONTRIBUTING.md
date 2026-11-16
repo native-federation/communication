@@ -17,13 +17,14 @@ The library is deliberately small. The object on `globalThis.__NF_BUS__` is the 
 ```
 src/index.ts                   '.': bus, connect and the types
 src/domain.ts                  './domain': the types only
-src/internal.ts                './internal': createBus, getNFBus and installNFBus
+src/internal.ts                './internal': createBus, busFrom, getNFBus and installNFBus
 src/quickstart.ts              './quickstart' and './quickstart.js': installs a bus, nothing else
 src/transport/cross-tab.ts     './transport/cross-tab': broadcastTransport
 src/lib/domain/                the contracts (*.contract.ts) and their barrels, per area
 src/lib/bus/create-bus.ts      the bus itself, tap included
 src/lib/global/slot.ts         getNFBus and installNFBus: reading and filling __NF_BUS__
-src/lib/global/global-bus.ts   the bus facade and the inert bus it falls back to
+src/lib/global/bus-from.ts     busFrom: a bus facade over a getter, and the inert bus it falls back to
+src/lib/global/global-bus.ts   bus: busFrom(getNFBus)
 src/lib/connect/connect.ts     connect: a transport bridged through a tap
 src/lib/cross-tab/             broadcastTransport
 test/                          tests against the build (test/.dist, built by global-setup.ts)

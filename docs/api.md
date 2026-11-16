@@ -6,18 +6,19 @@
 
 Every subpath is under `@softarc/native-federation-communication`:
 
-| Import                 | Exports                                 | For                                                      |
-| ---------------------- | --------------------------------------- | -------------------------------------------------------- |
-| the package            | `bus`, `connect`, every type            | Everyone                                                 |
-| `/quickstart`          | nothing: it installs a bus              | The host, once                                           |
-| `/internal`            | `createBus`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
-| `/domain`              | every type, and the `__NF_BUS__` global | Types without runtime code                               |
-| `/transport/cross-tab` | `broadcastTransport`                    | [Cross-tab](./cross-tab.md)                              |
-| `/quickstart.js`       | a classic script that installs a bus    | The [script tag](./getting-started.md#with-a-script-tag) |
+| Import                 | Exports                                            | For                                                      |
+| ---------------------- | -------------------------------------------------- | -------------------------------------------------------- |
+| the package            | `bus`, `connect`, every type                       | Everyone                                                 |
+| `/quickstart`          | nothing: it installs a bus                         | The host, once                                           |
+| `/internal`            | `createBus`, `busFrom`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
+| `/domain`              | every type, and the `__NF_BUS__` global            | Types without runtime code                               |
+| `/transport/cross-tab` | `broadcastTransport`                               | [Cross-tab](./cross-tab.md)                              |
+| `/quickstart.js`       | a classic script that installs a bus               | The [script tag](./getting-started.md#with-a-script-tag) |
 
 ```js
 import { bus, connect } from '@softarc/native-federation-communication';
 import {
+  busFrom,
   createBus,
   getNFBus,
   installNFBus,
@@ -29,20 +30,28 @@ import {
   [inert](#without-an-installed-bus).
 - `createBus()` returns a new bus that is installed nowhere: for code that takes the bus as a
   parameter, for tests, or to install yourself.
-- `getNFBus(loc = globalThis)` returns the value at `loc.__NF_BUS__` as is, or `undefined`.
-- `installNFBus(bus, loc = globalThis)` installs `bus` at `loc.__NF_BUS__` if nothing is there, and
-  returns whichever bus is there afterwards. It never replaces a bus that others use. The slot is
-  read-only, so a stray assignment throws in strict mode instead of splitting the page.
+- `getNFBus()` returns the value at `globalThis.__NF_BUS__` as is, or `undefined`.
+- `installNFBus(bus)` installs `bus` at `globalThis.__NF_BUS__` if nothing is there, and returns
+  whichever bus is there afterwards. It never replaces a bus that others use. The slot is read-only,
+  so a stray assignment throws in strict mode instead of splitting the page.
+- `busFrom(get)` returns a frozen bus that calls `get()` on every call and uses the bus it returns,
+  or the [inert](#without-an-installed-bus) bus when that is `undefined`. `protocol`, `version` and
+  `tap` are read the same way. `bus` is `busFrom(getNFBus)`.
 
-`/quickstart` is `installNFBus(createBus())`. `loc` is any object: install a bus there and pass it to
-[`connect`](#connecttransport-channels-options) as `{ bus: getNFBus(loc) }`. `bus` itself always reads
-`globalThis`.
+`/quickstart` is `installNFBus(createBus())`. A bus kept anywhere else, such as in an iframe or a DI
+container, goes through `busFrom`:
 
 ```js
-const loc = {};
-installNFBus(createBus(), loc);
-getNFBus(loc).emit('cart:changed', { count: 3 });
-connect(transport, ['cart:changed'], { bus: getNFBus(loc) });
+const frameBus = busFrom(() => iframe.contentWindow?.__NF_BUS__);
+frameBus.emit('cart:changed', { count: 3 }); // dropped until the iframe installs a bus
+const scopedBus = busFrom(() => container.resolve('bus')); // whatever the container holds now
+```
+
+Pass such a bus to [`connect`](#connecttransport-channels-options) as `{ bus }`. The facade has `tap`
+only while the bus behind it has one, so `connect` refuses it until then:
+
+```js
+const connection = connect(transport, ['cart:changed'], { bus: frameBus });
 ```
 
 ## The bus
@@ -139,9 +148,9 @@ connection?.close(); // stop both directions; safe to call twice
 - Every emit on a listed channel is sent, with its `retain`. Every envelope received for a listed
   channel is emitted on this side and not sent back. Other channels and anything that is not an
   envelope are ignored.
-- `{ bus }` connects another bus, such as one from `createBus()` or `getNFBus(loc)`, instead of the
-  page bus. An explicit `{ bus: undefined }`, which `getNFBus(loc)` gives for an empty `loc`, is
-  refused like a bus without `tap`, never replaced by the page bus.
+- `{ bus }` connects another bus, such as one from `createBus()` or `busFrom(get)`, instead of the
+  page bus. An explicit `{ bus: undefined }` is refused like a bus without `tap`, never replaced by
+  the page bus.
 - `connect` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
   or an older copy installed it (it then warns), or when its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.
@@ -181,9 +190,11 @@ rules:
 
 ## Without an installed bus
 
-Until a bus is installed, `bus` is inert: it checks its arguments and throws the same `TypeError`s,
-then drops the call. `emit` delivers nothing, `on` returns an `off` that does nothing, `peek` returns
-`undefined`, and `tap` is `undefined`. The first dropped call warns, once per copy of the package:
+Until a bus is installed, `bus` is inert, and so is a `busFrom` bus while its getter returns
+`undefined`. It checks `channel` on every method and `listener` on `on`, throwing the same
+`TypeError`s as a real bus, then drops the call; it does not check `signal` or other options. `emit`
+delivers nothing, `on` returns an `off` that does nothing, `peek` returns `undefined`, and `tap` is
+`undefined`. The first dropped call warns, once per copy of the package:
 
 ```text
 [native-federation-communication] No bus is available here, so this call is dropped. Install one

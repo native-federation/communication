@@ -58,3 +58,12 @@ Node, Deno, Bun, workers and iframes:
 - **Copies older than this release** (4.0.0-next.0 and next.1) still install a bus on first use
   wherever `window === globalThis`, as on a server with a DOM shim or on Deno 1.x. On a server that is
   one bus for all requests, so install the SSR recipe's bus at boot to keep the slot taken.
+
+## Upgrading from 4.0.0-next.x
+
+Copies from next.0 and next.1 install a bus on first use; this release installs only through
+`/quickstart`, `quickstart.js` or `installNFBus`. Upgrade the host first and add the `/quickstart`
+import (or `quickstart.js`) there, before you upgrade any remote. A remote on this release next to a
+next.x host loses every subscription it makes before the host's first bus call, since those go to the
+inert bus. If native federation shares this release with the host as well, a host without the
+`/quickstart` import installs nothing, and the whole page stays inert.

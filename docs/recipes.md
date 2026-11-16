@@ -135,8 +135,8 @@ customElements.define('cart-badge', CartBadge);
 
 A process-wide bus would show one user's values to the next, so never import `/quickstart` in server
 code: only in the browser or React Native entry. Without an installed bus, server code gets the inert
-bus, which drops every call and warns once. For a bus per request, install, once at boot, a bus that
-forwards each call to the current request's own bus:
+bus, which drops every call and warns once. For a bus per request, install, once at boot, a
+[`busFrom`](./api.md#entry-points) bus that looks up the current request's own bus on every call:
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
@@ -161,7 +161,8 @@ server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 
 `installRequestBus` throws when something installed a bus first, since every request would share
 that one. Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share
-the request's bus, across `await` too. A call outside a request is checked, then dropped with one
+the request's bus, across `await` too. Outside a request the store is empty, so a call goes to the
+[inert bus](./api.md#without-an-installed-bus): its arguments are checked, then it is dropped with one
 warning. With a browser and a server entry, keep the `/quickstart` import in the browser one (in a
 federated host, its `bootstrap.ts`), and call `installRequestBus()` from the server one.
 
