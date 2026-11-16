@@ -20,9 +20,12 @@ src/domain.ts                  './domain': the types only
 src/internal.ts                './internal': createBus, getNFBus and installNFBus
 src/quickstart.ts              './quickstart' and './quickstart.js': installs a bus, nothing else
 src/transport/cross-tab.ts     './transport/cross-tab': broadcastTransport
-src/lib/domain/bus/            the contracts (*.contract.ts) and their barrel
-src/lib/bus/create-bus.ts      the bus itself
-src/lib/global/global-bus.ts   reading and installing __NF_BUS__, and the bus facade
+src/lib/domain/                the contracts (*.contract.ts) and their barrels, per area
+src/lib/bus/create-bus.ts      the bus itself, tap included
+src/lib/global/slot.ts         getNFBus and installNFBus: reading and filling __NF_BUS__
+src/lib/global/global-bus.ts   the bus facade and the inert bus it falls back to
+src/lib/connect/connect.ts     connect: a transport bridged through a tap
+src/lib/cross-tab/             broadcastTransport
 test/                          tests against the build (test/.dist, built by global-setup.ts)
 test/recipes/                  the plain-JS recipes from docs/recipes.md, run by test/recipes.spec.ts
 docs/                          user documentation
