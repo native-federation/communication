@@ -46,7 +46,7 @@ function refuseTaken(name: string): Connection {
 function receive(tap: Tap, listed: Set<string>, envelope: unknown): void {
   const { channel, value, retain } = (envelope ?? {}) as Partial<Envelope>;
   if (typeof channel === 'string' && listed.has(channel)) {
-    tap.emit(channel, value, { retain: Boolean(retain) });
+    tap.emit(channel, value, { retain });
   }
 }
 

@@ -120,6 +120,8 @@ type Transport = {
 };
 ```
 
+A received envelope's `retain` follows `emit`'s rules.
+
 `Transport`, `Envelope`, `Connection` and `ConnectOptions` are exported types. A transport follows five
 rules:
 

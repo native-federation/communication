@@ -382,13 +382,13 @@ describe('connect', () => {
       expect(bus.peek('b')).toBeUndefined();
     });
 
-    // Boolean(envelope.retain): a missing retain is not the bus default, it is off.
+    // The envelope's retain goes to tap.emit as is, so a missing one takes the bus default (retain)
+    // and any other value follows emit's coercion.
     it.each([
-      ['missing', undefined, false],
-      ['0', 0, false],
+      ['missing', undefined, true],
+      ['false', false, false],
       ['1', 1, true],
-      ['"yes"', 'yes', true],
-    ])('coerces a %s retain with Boolean()', (_, retain, retained) => {
+    ])('follows emit for a %s retain', (_, retain, retained) => {
       const bus = createBus();
       const transport = endpoint();
       connect(transport, ['a'], { bus });
