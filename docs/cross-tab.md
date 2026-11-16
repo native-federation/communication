@@ -49,7 +49,7 @@ last-writer-wins.
 
 ## Copies
 
-Every copy's `broadcastChannelTransport()` has the same name, so a second `connectTransport` on the same bus returns
+Every copy's `broadcastChannelTransport()` has the same name, so a second `connectTransport` on the same bus warns, returns
 `undefined` and its channels are not bridged. List every channel in the host's one `connectTransport`. If
 the host calls `close()`, nobody takes over; connect again.
 

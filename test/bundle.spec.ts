@@ -375,7 +375,10 @@ describe('the published bundles', () => {
         one.connectTransport(tabsOne.broadcastChannelTransport(), [channel], { bus: otherTab })!
       );
       expect(refused).toBeUndefined();
-      expect(warn).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /Transport 'broadcast:native-federation-communication\/1' is not connected: the name is/
+      );
       two.bus.emit(channel, 1);
       two.bus.emit(channel, 2);
       await vi.waitFor(() => expect(there).toEqual([1, 2]));

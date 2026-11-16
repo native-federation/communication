@@ -11,3 +11,8 @@ function assertType(value: unknown, type: 'string' | 'function', what: string): 
 export const assertChannel = (channel: unknown) => assertType(channel, 'string', 'A channel');
 export const assertListener = (listener: unknown) => assertType(listener, 'function', 'A listener');
 export const assertTapName = (name: unknown) => assertType(name, 'string', 'A tap name');
+export const assertTapListener = (listener: unknown) =>
+  assertType(listener, 'function', 'A tap listener');
+export const assertTransportName = (name: unknown) =>
+  assertType(name, 'string', 'A transport name');
+export const assertGetter = (getBus: unknown) => assertType(getBus, 'function', "busFrom's getBus");

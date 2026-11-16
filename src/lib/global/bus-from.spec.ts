@@ -77,8 +77,20 @@ describe('busFrom', () => {
     expect(bus.tap).toBeUndefined();
     expect(listener).not.toHaveBeenCalled();
     expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is available here, so this call is dropped/);
+    expect(warn.mock.calls[0]?.[0]).toMatch(
+      /No bus is available here, so emit\('a'\) and every later call/
+    );
   });
+
+  it.each([undefined, null, {}, 'getBus'])(
+    'rejects %s as the getter when it is created',
+    getBus => {
+      expect(() => busFrom(getBus as never)).toThrow(TypeError);
+      expect(() => busFrom(getBus as never)).toThrow(
+        /^\[native-federation-communication\] busFrom's getBus must be a function, got /
+      );
+    }
+  );
 
   // Without the guard each call re-enters the same facade until the stack overflows (RangeError).
   it('throws a prefixed TypeError when the getter returns the facade itself', () => {

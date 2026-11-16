@@ -104,15 +104,27 @@ describe('connect', () => {
       ['a missing listen', { name: 't', send: () => {} }],
       ['a listen that is not a function', { ...valid(), listen: {} }],
     ])('rejects %s as a transport', (_, transport) => {
-      expect(() => connectTransport(transport as never, ['a'], { bus: createBus() })).toThrow(TypeError);
+      expect(() => connectTransport(transport as never, ['a'], { bus: createBus() })).toThrow(
+        TypeError
+      );
+    });
+
+    // Checked before the bus, so the caller's word shows up even when the bus would refuse anyway.
+    it.each([undefined, 1, {}])('rejects %s as a transport name, in those words', name => {
+      const transport = { ...valid(), name: name as never };
+
+      expect(() => connectTransport(transport, ['a'], { bus: undefined })).toThrow(
+        /^\[native-federation-communication\] A transport name must be a string, got /
+      );
+      expect(warn).not.toHaveBeenCalled();
     });
 
     it.each([1, undefined, null, {}])('rejects %s in the channel list', channel => {
       const transport = endpoint();
 
-      expect(() => connectTransport(transport, ['a', channel as never], { bus: createBus() })).toThrow(
-        /A channel must be a string/
-      );
+      expect(() =>
+        connectTransport(transport, ['a', channel as never], { bus: createBus() })
+      ).toThrow(/A channel must be a string/);
       expect(transport.listen).not.toHaveBeenCalled();
     });
 
@@ -180,7 +192,9 @@ describe('connect', () => {
       expect(transport.listen).not.toHaveBeenCalled();
       expect(transport.sent).toEqual([]);
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toMatch(/cannot connect transports: no bus is installed/);
+      expect(warn.mock.calls[0]?.[0]).toBe(
+        "[native-federation-communication] Transport 'memory' is not connected: options.bus is undefined."
+      );
     });
 
     // With nothing installed the global bus is the inert one, which has no tap.
@@ -191,7 +205,18 @@ describe('connect', () => {
       expect(connection).toBeUndefined();
       expect(transport.listen).not.toHaveBeenCalled();
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toMatch(/cannot connect transports: no bus is installed/);
+      expect(warn.mock.calls[0]?.[0]).toBe(
+        "[native-federation-communication] Transport 'memory' is not connected: no bus is installed."
+      );
+    });
+
+    it('is refused, naming the cause, when the installed bus has no tap', () => {
+      globalThis.__NF_BUS__ = withoutTap();
+
+      expect(connectTransport(endpoint(), ['a'])).toBeUndefined();
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /Transport 'memory' is not connected: the installed bus has no tap \(an older copy installed it\)\.$/
+      );
     });
   });
 
@@ -201,12 +226,18 @@ describe('connect', () => {
       const first = endpoint('first');
       const second = endpoint('second');
 
-      const connections = [connectTransport(first, ['a'], { bus }), connectTransport(second, ['a'], { bus })];
+      const connections = [
+        connectTransport(first, ['a'], { bus }),
+        connectTransport(second, ['a'], { bus }),
+      ];
       first.inject({ channel: 'a', value: 1, retain: true });
 
       expect(connections).toEqual([undefined, undefined]);
       expect(warn).toHaveBeenCalledTimes(2);
-      expect(warn.mock.calls[0]?.[0]).toMatch(/^\[native-federation-communication\] /);
+      expect(warn.mock.calls.map(([text]: unknown[]) => text)).toEqual([
+        "[native-federation-communication] Transport 'first' is not connected: options.bus has no tap.",
+        "[native-federation-communication] Transport 'second' is not connected: options.bus has no tap.",
+      ]);
       expect(first.listen).not.toHaveBeenCalled();
       expect(second.listen).not.toHaveBeenCalled();
       expect(first.sent).toEqual([]);
@@ -217,8 +248,8 @@ describe('connect', () => {
   });
 
   describe('a transport name already connected to the bus', () => {
-    // Like tap, a taken name is refused silently: the undefined result tells the caller.
-    it('is refused with undefined and no warning, without listening', () => {
+    // Unlike tap, which only returns undefined, connectTransport warns, as it does without a tap.
+    it('is refused with undefined and a warning naming the transport, without listening', () => {
       const bus = createBus();
       const original = endpoint('broadcast:x');
       const duplicate = endpoint('broadcast:x');
@@ -228,7 +259,11 @@ describe('connect', () => {
       bus.emit('a', 1);
 
       expect(connection).toBeUndefined();
-      expect(warn).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toBe(
+        "[native-federation-communication] Transport 'broadcast:x' is not connected: the name is " +
+          'already taken on this bus by a tap or transport.'
+      );
       expect(duplicate.listen).not.toHaveBeenCalled();
       expect(duplicate.sent).toEqual([]);
       expect(original.sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
@@ -240,7 +275,7 @@ describe('connect', () => {
       bus.tap!('logger', () => {});
 
       expect(connectTransport(endpoint('logger'), ['a'], { bus })).toBeUndefined();
-      expect(warn).not.toHaveBeenCalled();
+      expect(warn.mock.calls[0]?.[0]).toMatch(/Transport 'logger' is not connected: the name is/);
     });
 
     it('is accepted on another bus', () => {

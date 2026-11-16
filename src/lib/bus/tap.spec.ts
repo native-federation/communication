@@ -35,7 +35,7 @@ describe('bus.tap', () => {
 
     it.each([undefined, 'fn', {}, null])('rejects %s as a tap listener', listener => {
       expect(() => bus.tap!('t', listener as never)).toThrow(TypeError);
-      expect(() => bus.tap!('t', listener as never)).toThrow(/must be a function/);
+      expect(() => bus.tap!('t', listener as never)).toThrow(/A tap listener must be a function/);
     });
 
     it('refuses a second live tap with the same name, silently', () => {

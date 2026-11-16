@@ -1,29 +1,35 @@
 import type { Bus, TapListener } from '../domain/bus/bus.contract.js';
-import { assertChannel, assertListener, noop } from '../bus/arguments.js';
+import { assertChannel, assertGetter, assertListener, noop } from '../bus/arguments.js';
 import { VERSION } from '../bus/create-bus.js';
 
 let warned = false;
 
-function dropped(channel: unknown): undefined {
+// Remotes must not install a bus themselves (each would get its own), so this points at the host.
+function dropped(method: string, channel: unknown): undefined {
   assertChannel(channel);
   if (warned) return;
   warned = true;
   console.warn(
-    '[native-federation-communication] No bus is available here, so this call is dropped. Install ' +
-      "one with '@softarc/native-federation-communication/install' or via " +
-      "'@softarc/native-federation-communication/setup'."
+    `[native-federation-communication] No bus is available here, so ${method}('${channel}') and ` +
+      'every later call until one is installed are dropped; listeners added now are lost. The host ' +
+      "installs a bus with '@softarc/native-federation-communication/install'."
   );
 }
 
 const inert: Bus = {
   protocol: 1,
   version: VERSION,
-  emit: dropped,
-  on: (channel: string, listener: unknown) => (assertListener(listener), dropped(channel), noop),
-  peek: dropped,
+  emit: (channel: string) => dropped('emit', channel),
+  on: (channel: string, listener: unknown) => {
+    assertListener(listener);
+    dropped('on', channel);
+    return noop;
+  },
+  peek: (channel: string) => dropped('peek', channel),
 };
 
 export function busFrom(getBus: () => NativeFederationBus | undefined): Bus {
+  assertGetter(getBus);
   const current = (): Bus => {
     const resolved = getBus() ?? inert;
     if (resolved === facade) {

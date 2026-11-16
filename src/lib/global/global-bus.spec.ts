@@ -64,9 +64,13 @@ describe('the global bus', () => {
       bus.peek('a');
 
       expect(warn).toHaveBeenCalledTimes(1);
-      expect(warn.mock.calls[0]?.[0]).toMatch(
-        /No bus is available here.*\/install'.*native-federation-communication\/setup'/s
+      expect(warn.mock.calls[0]?.[0]).toBe(
+        "[native-federation-communication] No bus is available here, so emit('a') and every later " +
+          'call until one is installed are dropped; listeners added now are lost. The host installs ' +
+          "a bus with '@softarc/native-federation-communication/install'."
       );
+      // Sending a remote to /setup would have it install its own bus, apart from the host's.
+      expect(warn.mock.calls[0]?.[0]).not.toMatch(/\/setup/);
 
       (await loadCopy()).bus.peek('a');
       expect(warn).toHaveBeenCalledTimes(2);
@@ -76,7 +80,7 @@ describe('the global bus', () => {
       ['emit', (bus: Bus) => bus.emit('a', 1)],
       ['on', (bus: Bus) => bus.on('a', () => {})],
       ['peek', (bus: Bus) => bus.peek('a')],
-    ])('warns from %s alone, but not when protocol or version is read', async (_, call) => {
+    ])('warns from %s alone, but not when protocol or version is read', async (name, call) => {
       const { bus } = await loadCopy();
 
       expect([bus.protocol, bus.version]).toEqual([1, version]);
@@ -84,6 +88,7 @@ describe('the global bus', () => {
 
       call(bus);
       expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toContain(`so ${name}('a') and every later call`);
     });
 
     it('has no tap, and the facade returns undefined without a warning', async () => {

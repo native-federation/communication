@@ -162,7 +162,10 @@ describe('broadcastChannelTransport', () => {
 
       expect(duplicate).toBeUndefined();
       expect(opened).toHaveLength(1);
-      expect(warn).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(
+        /Transport 'broadcast:.*' is not connected: the name/
+      );
     });
   });
 

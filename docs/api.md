@@ -151,8 +151,9 @@ connection?.close(); // stop both directions; safe to call twice
 - `{ bus }` connects another bus, such as one from `createBus()` or `busFrom(getBus)`, instead of the
   page bus. An explicit `{ bus: undefined }` is refused like a bus without `tap`, never replaced by
   the page bus.
-- `connectTransport` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
-  or an older copy installed it (it then warns), or when its `name` is taken on that bus.
+- `connectTransport` returns `undefined` and warns, naming the transport and the cause, when refused:
+  when `options.bus` is `undefined`, when no bus is installed, when the bus has no `tap` because an
+  older copy installed it, or when its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.
 - A channel that is not a string, or a transport without a string `name` or a `listen` function,
   throws a `TypeError`. A `send` that is not a function is reported on each emit.
@@ -180,7 +181,7 @@ rules:
 - **Values must survive the encoding.** JSON drops functions and `undefined` fields; structured clone
   turns class instances into plain objects and rejects functions.
 - **`name` is its tap name; taps and transports share one namespace per bus.** Use `kind:id` names like
-  `broadcast:<wire>`. A second `connectTransport` with a taken name returns `undefined`, which keeps two copies
+  `broadcast:<wire>`. A second `connectTransport` with a taken name warns and returns `undefined`, which keeps two copies
   of the same transport from bridging twice.
 - **`listen` may throw; `connectTransport` then closes the tap and rethrows.**
 - **`send` is fire-and-forget: a synchronous throw is reported; an async `send` handles its own
@@ -194,12 +195,12 @@ Until a bus is installed, `bus` is inert, and so is a `busFrom` bus while its ge
 `undefined`. It checks `channel` on every method and `listener` on `on`, throwing the same
 `TypeError`s as a real bus, then drops the call; it does not check `signal` or other options. `emit`
 delivers nothing, `on` returns an `off` that does nothing, `peek` returns `undefined`, and `tap` is
-`undefined`. The first dropped call warns, once per copy of the package:
+`undefined`. The first dropped call warns, once per copy of the package, naming that call:
 
 ```text
-[native-federation-communication] No bus is available here, so this call is dropped. Install one
-with '@softarc/native-federation-communication/install' or via
-'@softarc/native-federation-communication/setup'.
+[native-federation-communication] No bus is available here, so emit('cart') and every later call
+until one is installed are dropped; listeners added now are lost. The host installs a bus with
+'@softarc/native-federation-communication/install'.
 ```
 
 `bus` serves an installed bus from the next call on; listeners added to the inert bus stay lost.

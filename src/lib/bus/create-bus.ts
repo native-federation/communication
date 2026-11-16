@@ -7,7 +7,13 @@ import type {
   TapListener,
   Unsubscribe,
 } from '../domain/bus/bus.contract.js';
-import { assertChannel, assertListener, assertTapName, noop } from './arguments.js';
+import {
+  assertChannel,
+  assertListener,
+  assertTapListener,
+  assertTapName,
+  noop,
+} from './arguments.js';
 import { safely } from './safely.js';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
@@ -100,7 +106,7 @@ function opener(state: State) {
   const { retained, taps, hold } = state;
   return (name: string, listener: TapListener): Tap | undefined => {
     assertTapName(name);
-    assertListener(listener);
+    assertTapListener(listener);
     if (taps.has(name)) return undefined;
     // A fresh function per tap, so a closed handle never acts on a later tap with the same name.
     const own: TapListener = envelope => listener(envelope);
