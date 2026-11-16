@@ -57,11 +57,38 @@ function generateBundles() {
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/init-bus.js`]: {
+    [`${PACKAGE_NAME}/setup`]: {
+      ...baseConfig,
+      format: 'esm',
+      entryPoints: ['src/setup.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-setup.mjs'),
+      minify: false,
+      sourcemap: true,
+    },
+
+    [`${PACKAGE_NAME}/install`]: {
+      ...baseConfig,
+      format: 'esm',
+      entryPoints: ['src/install.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-install.mjs'),
+      minify: false,
+      sourcemap: true,
+    },
+
+    [`${PACKAGE_NAME}/transport/broadcast-channel`]: {
+      ...baseConfig,
+      format: 'esm',
+      entryPoints: ['src/transport/broadcast-channel.ts'],
+      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-transport-broadcast-channel.mjs'),
+      minify: false,
+      sourcemap: true,
+    },
+
+    [`${PACKAGE_NAME}/install.js`]: {
       ...baseConfig,
       format: 'iife',
-      entryPoints: ['src/init-bus.ts'],
-      outfile: path.join(OUT_DIR, 'init-bus.js'),
+      entryPoints: ['src/install.ts'],
+      outfile: path.join(OUT_DIR, 'install.js'),
       minify: true,
       sourcemap: false,
     },
@@ -82,12 +109,27 @@ function generatePackageExports() {
         import: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
       },
-      './init-bus.js': { default: './init-bus.js' },
+      './setup': {
+        types: './types/setup.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-setup.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-setup.mjs`,
+      },
+      './install': {
+        types: './types/install.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-install.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-install.mjs`,
+      },
+      './transport/broadcast-channel': {
+        types: './types/transport/broadcast-channel.d.ts',
+        import: `./fesm2022/${PACKAGE_NAME}-transport-broadcast-channel.mjs`,
+        default: `./fesm2022/${PACKAGE_NAME}-transport-broadcast-channel.mjs`,
+      },
+      './install.js': { default: './install.js' },
     },
     typings: './types/index.d.ts',
     module: `./fesm2022/${PACKAGE_NAME}.mjs`,
     type: 'module',
-    sideEffects: ['./init-bus.js'],
+    sideEffects: [`./fesm2022/${PACKAGE_NAME}-install.mjs`, './install.js'],
   };
 }
 

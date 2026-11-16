@@ -100,6 +100,11 @@ describe('the custom element recipe', () => {
 });
 
 describe('the request bus recipe', () => {
+  // The testing setup stubs a bus into the slot, and installRequestBus refuses to run on top of one.
+  beforeEach(() => {
+    delete globalThis.__NF_BUS__;
+  });
+
   afterEach(() => {
     delete globalThis.__NF_BUS__;
   });
@@ -168,7 +173,7 @@ describe('the request bus recipe', () => {
     expect(listener).not.toHaveBeenCalled();
     expect(off).toBeTypeOf('function');
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0]?.[0]).toMatch(/outside a request/);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is available here/);
   });
 
   // Like the package's inert bus: a bad argument throws before anything is warned or dropped.
@@ -185,6 +190,28 @@ describe('the request bus recipe', () => {
     expect(() => slot.on?.('recipe:user')).toThrow(TypeError);
     expect(() => slot.peek?.(null)).toThrow(TypeError);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  // The slot takes only the first install: a process-wide bus already there would leak between
+  // requests, so the recipe refuses to start on top of it.
+  it('throws when another bus is already installed, and leaves that bus in place', async () => {
+    const { installRequestBus } = await recipe('request-bus');
+    const { createBus, installGlobalBus } = await import(`${pkg}/setup`);
+    const first = installGlobalBus(createBus());
+
+    expect(() => installRequestBus()).toThrow(/already holds another bus/);
+    expect(globalThis.__NF_BUS__).toBe(first);
+  });
+
+  it('installs a read-only, non-enumerable slot', async () => {
+    const { installRequestBus } = await recipe('request-bus');
+    installRequestBus();
+
+    expect(Object.getOwnPropertyDescriptor(globalThis, '__NF_BUS__')).toMatchObject({
+      writable: false,
+      enumerable: false,
+      configurable: true,
+    });
   });
 
   it('still serves requests after an out-of-scope call', async () => {
@@ -204,7 +231,8 @@ describe('the request bus recipe', () => {
   it('is a bus for every copy of the package', async () => {
     const { installRequestBus, withRequestBus } = await recipe('request-bus');
     installRequestBus();
-    const { bus, createBus } = await import(pkg);
+    const { bus } = await import(pkg);
+    const { createBus } = await import(`${pkg}/setup`);
 
     withRequestBus(() => {
       bus.emit('recipe:user', 'a');
@@ -213,5 +241,30 @@ describe('the request bus recipe', () => {
     expect(createBus().version).toBe(globalThis.__NF_BUS__?.version);
     expect(globalThis.__NF_BUS__?.protocol).toBe(1);
     expect(Object.isFrozen(globalThis.__NF_BUS__)).toBe(true);
+  });
+});
+
+describe('the WebView page recipe', () => {
+  afterEach(() => {
+    delete (window as { __SHOP_FROM_APP__?: unknown }).__SHOP_FROM_APP__;
+  });
+
+  // The fixture connects at import, to whichever bus testing-setup installed for this test.
+  it('posts listed emits to the app and emits what the app injects, without echo', async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal('ReactNativeWebView', { postMessage });
+    await recipe('webview-page');
+    const fromApp = (window as { __SHOP_FROM_APP__?: (json: string) => void }).__SHOP_FROM_APP__;
+
+    globalThis.__NF_BUS__?.emit('cart:changed', { count: 1 });
+    globalThis.__NF_BUS__?.emit('recipe:unlisted', 1);
+    fromApp?.(JSON.stringify({ channel: 'auth:user', value: { id: 1 }, retain: true }));
+
+    // The ready message comes first: listen runs as soon as connectTransport has claimed the transport name.
+    expect(postMessage.mock.calls).toEqual([
+      [JSON.stringify({ type: 'webview-ready' })],
+      [JSON.stringify({ channel: 'cart:changed', value: { count: 1 }, retain: true })],
+    ]);
+    expect(globalThis.__NF_BUS__?.peek('auth:user')).toEqual({ id: 1 });
   });
 });

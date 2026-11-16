@@ -15,16 +15,22 @@ The library is deliberately small. The object on `globalThis.__NF_BUS__` is the 
 ## Source Code Organization
 
 ```
-src/index.ts                   '.': createBus, bus and the types
-src/domain.ts                  './domain': the types only
-src/init-bus.ts                './init-bus.js': installs the bus from a script tag
-src/lib/domain/bus/            the contracts (*.contract.ts) and their barrel
-src/lib/bus/create-bus.ts      the bus itself
-src/lib/global/global-bus.ts   finding or installing the page's bus
-test/                          tests against the build (test/.dist, built by global-setup.ts)
-test/recipes/                  the plain-JS recipes from docs/recipes.md, run by test/recipes.spec.ts
-docs/                          user documentation
-build.js                       esbuild bundles, tsc declarations and the dist package.json
+src/index.ts                         '.': bus, connectTransport and the types
+src/domain.ts                        './domain': the types only
+src/setup.ts                         './setup': createBus, busFrom, getGlobalBus and installGlobalBus
+src/install.ts                       './install' and './install.js': installs a bus, nothing else
+src/transport/broadcast-channel.ts   './transport/broadcast-channel': broadcastChannelTransport
+src/lib/domain/                      the contracts (*.contract.ts) and their barrels, per area
+src/lib/bus/create-bus.ts            the bus itself, tap included
+src/lib/global/slot.ts               getGlobalBus and installGlobalBus: reading and filling __NF_BUS__
+src/lib/global/bus-from.ts           busFrom: a bus facade over a getter, and the inert bus it falls back to
+src/lib/global/global-bus.ts         bus: busFrom(getGlobalBus)
+src/lib/connect/connect.ts           connectTransport: a transport bridged through a tap
+src/lib/transport/                   broadcastChannelTransport
+test/                                tests against the build (test/.dist, built by global-setup.ts)
+test/recipes/                        the plain-JS recipes from docs/recipes.md, run by test/recipes.spec.ts
+docs/                                user documentation
+build.js                             esbuild bundles, tsc declarations and the dist package.json
 ```
 
 Unit tests (`*.spec.ts`) sit next to the code they test. `./package.json` is exported as well.

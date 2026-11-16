@@ -1,41 +1,36 @@
 import type {
   Bus,
+  EmitOptions,
   Listener,
   OnOptions,
-  EmitOptions,
+  Tap,
+  TapListener,
   Unsubscribe,
 } from '../domain/bus/bus.contract.js';
-import { assertChannel, assertListener, noop } from './arguments.js';
+import {
+  assertChannel,
+  assertListener,
+  assertTapListener,
+  assertTapName,
+  noop,
+} from './arguments.js';
+import { safely } from './safely.js';
 
 declare const __NF_COMMUNICATION_VERSION__: string;
 export const VERSION = __NF_COMMUNICATION_VERSION__;
 
-type Sub = { fn: Listener<unknown> };
-type Channel = { has: boolean; value: unknown; subs: Set<Sub>; dropIfEmpty: () => void };
+type Sub = { fn: Listener<unknown>; signal?: AbortSignal };
 type Task = () => void;
+type State = {
+  retained: Map<string, unknown>;
+  subs: Map<string, Set<Sub>>;
+  taps: Map<string, TapListener>;
+  hold: (step: Task) => void;
+  enqueue: (task: Task) => void;
+};
 
 // undefined means the default (on); anything else goes through Boolean(), so `{ replay: 0 }` is off.
 const enabled = (option: unknown): boolean => option === undefined || Boolean(option);
-
-function report(error: unknown): void {
-  if (typeof globalThis.reportError === 'function') globalThis.reportError(error);
-  else console.error(error);
-}
-
-function deliver(sub: Sub, value: unknown): void {
-  try {
-    sub.fn(value);
-  } catch (error) {
-    report(error);
-  }
-}
-
-// `subs` is the snapshot taken at emit time; `live` drops whoever unsubscribed since.
-function fanOut(subs: Sub[], live: Set<Sub>, value: unknown): void {
-  subs.forEach(sub => {
-    if (live.has(sub)) deliver(sub, value);
-  });
-}
 
 // hold() runs a step now; anything enqueued meanwhile is delivered after it, by the outermost call.
 function createQueue() {
@@ -57,73 +52,99 @@ function createQueue() {
   return { hold, enqueue: (task: Task) => hold(() => tasks.push(task)) };
 }
 
-function open(channels: Map<string, Channel>, name: string): Channel {
-  const existing = channels.get(name);
-  if (existing) return existing;
-
-  const channel: Channel = {
-    has: false,
-    value: undefined,
-    subs: new Set(),
-    // A stale record (replaced after it emptied) must never delete its successor.
-    dropIfEmpty: () => {
-      const empty = !channel.has && channel.subs.size === 0;
-      if (empty && channels.get(name) === channel) channels.delete(name);
-    },
+// Taps observe after the listeners, in the same task, so they see emits in delivery order.
+function emitter({ retained, subs, taps, enqueue }: State, source?: TapListener) {
+  return (channel: string, value: unknown, options?: EmitOptions): void => {
+    assertChannel(channel);
+    const retain = enabled(options?.retain);
+    if (retain) retained.set(channel, value);
+    else retained.delete(channel);
+    // `snapshot` is who listened at emit time; `live` drops whoever unsubscribed since.
+    const live = subs.get(channel) ?? new Set<Sub>();
+    const snapshot = [...live];
+    enqueue(() => {
+      snapshot.forEach(sub => {
+        if (live.has(sub)) safely(() => sub.fn(value));
+      });
+      taps.forEach(tap => {
+        if (tap !== source) safely(() => tap({ channel, value, retain }));
+      });
+    });
   };
-  channels.set(name, channel);
-  return channel;
 }
 
-function subscribe(channel: Channel, sub: Sub, signal?: AbortSignal): Unsubscribe {
+function subscribe(subs: Map<string, Set<Sub>>, channel: string, sub: Sub): Unsubscribe {
+  const set = subs.get(channel) ?? new Set<Sub>();
   const off = (): void => {
-    channel.subs.delete(sub);
-    signal?.removeEventListener('abort', off);
-    channel.dropIfEmpty();
+    sub.signal?.removeEventListener('abort', off);
+    // delete() is false the second time, so a stale off never drops a newer set.
+    if (set.delete(sub) && set.size === 0) subs.delete(channel);
   };
-  // Before subs.add: a signal that is not an AbortSignal throws here and leaves no listener behind.
-  signal?.addEventListener('abort', off, { once: true });
-  channel.subs.add(sub);
+  // Before subscribing: a signal that is not an AbortSignal throws here and leaves no listener behind.
+  sub.signal?.addEventListener('abort', off, { once: true });
+  subs.set(channel, set.add(sub));
   return off;
 }
 
-export function createBus(): Bus {
-  const channels = new Map<string, Channel>();
-  const { hold, enqueue } = createQueue();
+function replayOne({ retained, hold }: State, channel: string, fn: Listener<unknown>): void {
+  if (retained.has(channel)) hold(() => safely(() => fn(retained.get(channel))));
+}
 
-  const replayRetained = (channel: Channel, sub: Sub): void => {
-    if (channel.has) hold(() => deliver(sub, channel.value));
-  };
-
-  const emit = (name: string, value: unknown, options?: EmitOptions): void => {
-    assertChannel(name);
-    const channel = open(channels, name);
-    channel.has = enabled(options?.retain);
-    channel.value = channel.has ? value : undefined;
-    const subs = [...channel.subs];
-    channel.dropIfEmpty();
-    enqueue(() => fanOut(subs, channel.subs, value));
-  };
-
-  const on = (name: string, fn: Listener<unknown>, options?: OnOptions): Unsubscribe => {
-    assertChannel(name);
+function subscriber(state: State) {
+  return (channel: string, fn: Listener<unknown>, options?: OnOptions): Unsubscribe => {
+    assertChannel(channel);
     assertListener(fn);
     const { signal, replay } = options ?? {};
     if (signal?.aborted) return noop;
-    const channel = open(channels, name);
-    const sub = { fn };
-    const off = subscribe(channel, sub, signal);
-    if (enabled(replay)) replayRetained(channel, sub);
+    const off = subscribe(state.subs, channel, { fn, signal });
+    if (enabled(replay)) replayOne(state, channel, fn);
     return off;
   };
+}
 
-  const peek = (name: string): unknown => {
-    assertChannel(name);
-    const channel = channels.get(name);
-    return channel?.has ? channel.value : undefined;
+function opener(state: State) {
+  const { retained, taps, hold } = state;
+  return (name: string, listener: TapListener): Tap | undefined => {
+    assertTapName(name);
+    assertTapListener(listener);
+    if (taps.has(name)) return undefined;
+    // A fresh function per tap, so a closed handle never acts on a later tap with the same name.
+    const own: TapListener = envelope => listener(envelope);
+    taps.set(name, own);
+    const live = (): boolean => taps.get(name) === own;
+    const emit = emitter(state, own);
+    return {
+      emit: (channel: string, value: unknown, options?: EmitOptions) => {
+        if (live()) emit(channel, value, options);
+      },
+      replay: () => {
+        const values = live() ? [...retained] : [];
+        hold(() =>
+          values.forEach(([channel, value]) => safely(() => own({ channel, value, retain: true })))
+        );
+      },
+      close: () => {
+        if (live()) taps.delete(name);
+      },
+    };
   };
+}
+
+export function createBus(): Bus {
+  const retained = new Map<string, unknown>();
+  const state: State = { retained, subs: new Map(), taps: new Map(), ...createQueue() };
 
   // The untyped implementation can't satisfy Bus's generic signatures; it is checked against the global shape.
-  const instance = { protocol: 1, version: VERSION, emit, on, peek } satisfies NativeFederationBus;
+  const instance = {
+    protocol: 1,
+    version: VERSION,
+    emit: emitter(state),
+    on: subscriber(state),
+    peek: (channel: string): unknown => {
+      assertChannel(channel);
+      return retained.get(channel);
+    },
+    tap: opener(state),
+  } satisfies NativeFederationBus;
   return Object.freeze(instance) as Bus;
 }

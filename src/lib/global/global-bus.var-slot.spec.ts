@@ -1,14 +1,14 @@
-// @vitest-environment jsdom
 // A classic script's `var __NF_BUS__;` leaves a non-configurable slot that no test can delete, so
 // these cases get their own file and run in order on that one slot.
 import { createBus } from '../bus/create-bus.js';
+import { installGlobalBus } from './slot.js';
 
 async function loadCopy() {
   vi.resetModules();
   return import('./global-bus.js');
 }
 
-describe('the page bus over a var-declared slot', () => {
+describe('the global bus over a var-declared slot', () => {
   beforeAll(() => {
     Object.defineProperty(globalThis, '__NF_BUS__', {
       value: undefined,
@@ -22,7 +22,10 @@ describe('the page bus over a var-declared slot', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const a = await loadCopy();
     const b = await loadCopy();
+    const created = createBus();
 
+    expect(installGlobalBus(created)).toBe(created);
+    expect(installGlobalBus(createBus())).toBe(created);
     a.bus.emit('a', 1);
 
     expect(b.bus.peek('a')).toBe(1);
@@ -38,18 +41,5 @@ describe('the page bus over a var-declared slot', () => {
     bus.emit('a', 2);
 
     expect(assigned.peek('a')).toBe(2);
-  });
-
-  it('warns once and uses a private bus when the empty slot cannot be written', async () => {
-    Object.defineProperty(globalThis, '__NF_BUS__', { value: undefined, writable: false });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { bus } = await loadCopy();
-
-    bus.emit('a', 1);
-    bus.emit('a', 2);
-
-    expect(bus.peek('a')).toBe(2);
-    expect(globalThis.__NF_BUS__).toBeUndefined();
-    expect(warn).toHaveBeenCalledTimes(1);
   });
 });

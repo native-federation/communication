@@ -103,6 +103,18 @@ describe('the built package, consumed by name', () => {
     }
   );
 
+  it.each(Object.keys(RESOLUTIONS) as (keyof typeof RESOLUTIONS)[])(
+    'types connectTransport, tap and the ./transport/broadcast-channel subpath (%s resolution)',
+    resolution => {
+      expect(typeErrors('connect.ts', resolution)).toEqual([]);
+    }
+  );
+
+  // connectTransport treats an explicit `bus: undefined` apart from a missing bus, so its type must allow one.
+  it('types connectTransport under exactOptionalPropertyTypes', () => {
+    expect(typeErrors('connect.ts', 'nodenext', { exactOptionalPropertyTypes: true })).toEqual([]);
+  });
+
   it.each(readdirSync(join(FIXTURES, 'typing')))(
     'publishes the %s typing recipe verbatim in docs/typing.md',
     file => {
