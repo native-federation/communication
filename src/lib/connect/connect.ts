@@ -1,6 +1,6 @@
-import type { ChannelName, Envelope, Tap } from '../domain/bus/bus.contract.js';
+import type { ChannelName, Tap } from '../domain/bus/bus.contract.js';
 import type { Connection, ConnectOptions, Transport } from '../domain/connect/connect.contract.js';
-import { assertChannel } from '../bus/arguments.js';
+import { assertChannel, noop } from '../bus/arguments.js';
 import { getGlobalBus } from '../global/global-bus.js';
 
 let warnedNoTap = false;
@@ -28,33 +28,25 @@ function refuseNoTap(): undefined {
   }
 }
 
-// Inbound data comes from outside this realm, so anything malformed or unlisted is ignored.
-function receive(tap: Tap, listed: Set<string>, envelope: unknown): void {
-  const { channel, value, retain } = (envelope ?? {}) as Partial<Envelope>;
-  if (typeof channel === 'string' && listed.has(channel)) {
-    tap.emit(channel, value, { retain });
-  }
-}
-
-function listen(transport: Transport, tap: Tap, listed: Set<string>): () => void {
+function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
+  let unlisten: () => void;
   try {
-    return transport.listen(envelope => receive(tap, listed, envelope));
+    // Inbound data comes from outside this realm, so anything unlisted is ignored.
+    unlisten = transport.listen(envelope => {
+      if (listed.has(envelope?.channel))
+        tap.emit(envelope.channel, envelope.value, { retain: envelope.retain });
+    });
   } catch (error) {
     tap.close();
     throw error;
   }
-}
-
-function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
-  const unlisten = listen(transport, tap, listed);
-  let closed = false;
   return Object.freeze({
-    replay: () => tap.replay(),
+    replay: tap.replay,
     close: () => {
-      if (closed) return;
-      closed = true;
       tap.close();
-      unlisten();
+      const stop = unlisten;
+      unlisten = noop;
+      stop();
     },
   });
 }
