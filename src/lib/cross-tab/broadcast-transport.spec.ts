@@ -195,25 +195,36 @@ describe('broadcastTransport', () => {
 
   // send cannot tell two listens apart, so a second one would make the first side hear itself.
   describe('one instance listened twice', () => {
-    it('opens nothing for the second listen, so the first side hears no echo', async () => {
+    const already = (wire: string): string =>
+      `[native-federation-communication] broadcastTransport('${wire}') is already listening; use one instance per connection.`;
+
+    it('throws on the second listen, naming the wire, and the first side keeps working', async () => {
       const wire = fresh();
       const transport = broadcastTransport(wire);
-      const first: unknown[] = [];
-      const second: unknown[] = [];
-      track(transport.listen(envelope => first.push(envelope)));
-      const unlistenSecond = transport.listen(envelope => second.push(envelope));
+      const first: Side = { transport, received: [], unlisten: noop };
+      track(transport.listen(envelope => first.received.push(envelope)));
       const other = listening(wire);
 
-      transport.send({ channel: 'x', value: 1, retain: true });
-      await fence(transport, other);
-      await fence(other.transport, { transport, received: first, unlisten: noop });
+      expect(() => transport.listen(() => {})).toThrow(already(wire));
 
       expect(opened).toHaveLength(2);
-      expect(other.received).toEqual([{ channel: 'x', value: 1, retain: true }]);
-      expect(first).toEqual([]);
-      expect(second).toEqual([]);
-      unlistenSecond();
-      expect(opened[0]!.closes).toBe(0);
+      await fence(transport, other);
+      await fence(other.transport, first);
+    });
+
+    // Relies on connect closing the tap when listen throws.
+    it('throws when connected to a second bus, leaving that bus’s tap name free', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const wire = fresh();
+      const transport = broadcastTransport(wire);
+      track(connect(transport, ['x'], { bus: createBus() }).close);
+      const second = createBus();
+
+      expect(() => connect(transport, ['x'], { bus: second })).toThrow(already(wire));
+
+      track(connect(broadcastTransport(wire), ['x'], { bus: second }).close);
+      expect(warn).not.toHaveBeenCalled();
+      expect(opened).toHaveLength(2);
     });
 
     it('can listen again after unlisten', async () => {
@@ -221,9 +232,9 @@ describe('broadcastTransport', () => {
       const transport = broadcastTransport(wire);
       transport.listen(() => {})();
       const received: unknown[] = [];
-      track(transport.listen(envelope => received.push(envelope)));
-      const other = listening(wire);
 
+      expect(() => track(transport.listen(envelope => received.push(envelope)))).not.toThrow();
+      const other = listening(wire);
       await fence(other.transport, { transport, received, unlisten: noop });
 
       expect(opened).toHaveLength(3);
@@ -239,7 +250,10 @@ describe('broadcastTransport', () => {
       const unlisten = transport.listen(receive);
 
       expect(unlisten).toBeTypeOf('function');
+      // The same one-listen rule as with BroadcastChannel, so React Native behaves like a browser.
+      expect(() => transport.listen(receive)).toThrow(/is already listening/);
       expect(() => unlisten()).not.toThrow();
+      expect(() => transport.listen(receive)()).not.toThrow();
       expect(() => transport.send({ channel: 'x', value: 1, retain: true })).not.toThrow();
       expect(receive).not.toHaveBeenCalled();
     });
