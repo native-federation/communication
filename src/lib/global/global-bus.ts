@@ -18,13 +18,13 @@ function dropped(channel: unknown): undefined {
   );
 }
 
-const inert: Bus = Object.freeze({
+const inert: Bus = {
   protocol: 1,
   version: VERSION,
   emit: dropped,
   on: (channel: string, listener: unknown) => (assertListener(listener), dropped(channel), noop),
   peek: dropped,
-});
+};
 
 const isBus = (slot: unknown): slot is Bus => {
   const candidate = slot as Record<string, unknown> | null | undefined;

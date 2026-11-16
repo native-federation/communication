@@ -15,7 +15,7 @@ function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
     tap.close();
     throw error;
   }
-  return Object.freeze({
+  return {
     replay: tap.replay,
     close: () => {
       tap.close();
@@ -23,7 +23,7 @@ function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
       unlisten = noop;
       stop();
     },
-  });
+  };
 }
 
 export function connect(

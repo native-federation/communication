@@ -107,7 +107,7 @@ function opener(state: State) {
     taps.set(name, own);
     const live = (): boolean => taps.get(name) === own;
     const emit = emitter(state, own);
-    return Object.freeze({
+    return {
       emit: (channel: string, value: unknown, options?: EmitOptions) => {
         if (live()) emit(channel, value, options);
       },
@@ -120,7 +120,7 @@ function opener(state: State) {
       close: () => {
         if (live()) taps.delete(name);
       },
-    });
+    };
   };
 }
 

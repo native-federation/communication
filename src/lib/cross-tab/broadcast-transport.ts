@@ -4,7 +4,7 @@ import { noop } from '../bus/arguments.js';
 
 export function broadcastTransport(wire = 'native-federation-communication'): Transport {
   let port: BroadcastChannel | undefined;
-  return Object.freeze({
+  return {
     name: `broadcast:${wire}`,
     send: (envelope: Envelope) => port?.postMessage(envelope),
     // Opened here, not up front, so a refused connect opens nothing.
@@ -22,5 +22,5 @@ export function broadcastTransport(wire = 'native-federation-communication'): Tr
         port = undefined;
       };
     },
-  });
+  };
 }
