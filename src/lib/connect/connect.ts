@@ -6,7 +6,7 @@ import type {
 } from '../domain/connect/connect.contract.js';
 import { assertChannel, assertTransportName, noop } from '../bus/arguments.js';
 import { bus as globalBus } from '../global/global-bus.js';
-import { getNFBus } from '../global/slot.js';
+import { getGlobalBus } from '../global/slot.js';
 
 function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
   let unlisten: () => void;
@@ -36,7 +36,7 @@ const explicit = (options?: ConnectTransportOptions) => !!options && 'bus' in op
 
 function refusal(options?: ConnectTransportOptions): string {
   if (!explicit(options)) {
-    return getNFBus()
+    return getGlobalBus()
       ? 'the installed bus has no tap (an older copy installed it)'
       : 'no bus is installed';
   }

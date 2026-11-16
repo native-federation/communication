@@ -1,7 +1,7 @@
 import { version } from '../../../package.json';
 import { createBus } from '../bus/create-bus.js';
 import type { Bus } from '../domain/bus/bus.contract.js';
-import { installNFBus } from './slot.js';
+import { installGlobalBus } from './slot.js';
 
 // A protocol-1 bus as a copy built before tap existed installs it.
 const createBusLike = () => ({
@@ -126,7 +126,7 @@ describe('the global bus', () => {
     it('shares one installed bus between two copies of the module', async () => {
       const a = await loadCopy();
       const b = await loadCopy();
-      installNFBus(createBus());
+      installGlobalBus(createBus());
       expect(a.bus).not.toBe(b.bus);
 
       a.bus.emit('a', 'from a');
@@ -175,11 +175,11 @@ describe('the global bus', () => {
     it('throws a prefixed TypeError on use when the facade itself is installed', async () => {
       const { bus } = await loadCopy();
 
-      expect(installNFBus(bus)).toBe(bus);
+      expect(installGlobalBus(bus)).toBe(bus);
 
       expect(() => bus.emit('a', 1)).toThrow(TypeError);
       expect(() => bus.on('a', () => {})).toThrow(
-        /installNFBus\. Install a bus from createBus\(\)/
+        /installGlobalBus\. Install a bus from createBus\(\)/
       );
       expect(() => bus.protocol).toThrow(
         /^\[native-federation-communication\] .* resolves to itself/
@@ -188,7 +188,7 @@ describe('the global bus', () => {
 
     it('passes the options of emit and on through to the installed bus', async () => {
       const { bus } = await loadCopy();
-      installNFBus(createBus());
+      installGlobalBus(createBus());
       const controller = new AbortController();
       bus.emit('a', 'stale');
       bus.emit('b', 1, { retain: false });
@@ -205,7 +205,7 @@ describe('the global bus', () => {
 
     it('works with destructured methods', async () => {
       const { bus } = await loadCopy();
-      installNFBus(createBus());
+      installGlobalBus(createBus());
       const { emit, on, peek } = bus;
       const received: unknown[] = [];
 
@@ -218,7 +218,7 @@ describe('the global bus', () => {
 
     it('reports the protocol and version of the installed bus and is frozen', async () => {
       const { bus } = await loadCopy();
-      installNFBus(createBus());
+      installGlobalBus(createBus());
 
       expect(bus.protocol).toBe(1);
       expect(bus.version).toBe(version);
@@ -228,7 +228,7 @@ describe('the global bus', () => {
     describe('tap', () => {
       it('opens a tap on the installed bus', async () => {
         const { bus } = await loadCopy();
-        const installed = installNFBus(createBus());
+        const installed = installGlobalBus(createBus());
         const seen: unknown[] = [];
 
         expect(bus.tap).toBeTypeOf('function');

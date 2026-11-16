@@ -140,14 +140,14 @@ bus, which drops every call and warns once. For a bus per request, install, once
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { busFrom, createBus, installNFBus } from '@softarc/native-federation-communication/setup';
+import { busFrom, createBus, installGlobalBus } from '@softarc/native-federation-communication/setup';
 
 const requests = new AsyncLocalStorage();
 
 export function installRequestBus() {
   const requestBus = busFrom(() => requests.getStore());
   // a bus installed earlier would be shared by every request, so refuse to run on top of it
-  if (installNFBus(requestBus) !== requestBus)
+  if (installGlobalBus(requestBus) !== requestBus)
     throw new Error('__NF_BUS__ already holds another bus.');
 }
 
@@ -287,5 +287,5 @@ afterEach(() => {
 A rethrown error also skips that `emit`'s remaining deliveries, which is fine in a test. Without
 `vi.stubGlobal`, use
 `Object.defineProperty(globalThis, '__NF_BUS__', { value: createBus(), configurable: true })`: a
-plain assignment throws once `/install` or `installNFBus` has filled the slot. Code that takes the
+plain assignment throws once `/install` or `installGlobalBus` has filled the slot. Code that takes the
 bus as a parameter can get a `createBus()` of its own instead.

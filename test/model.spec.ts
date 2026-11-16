@@ -2,7 +2,7 @@
 import fc from 'fast-check';
 import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
 import { createBus } from '../src/lib/bus/create-bus.js';
-import { installNFBus } from '../src/lib/global/slot.js';
+import { installGlobalBus } from '../src/lib/global/slot.js';
 import { stubReportError } from './helpers.js';
 
 /**
@@ -255,7 +255,7 @@ describe('bus properties', () => {
     fc.assert(
       fc.property(fc.array(op, { maxLength: 40 }), ops => {
         delete globalThis.__NF_BUS__;
-        installNFBus(createBus());
+        installGlobalBus(createBus());
         const reference = createBus();
         const spread: unknown[][] = [];
         const single: unknown[][] = [];

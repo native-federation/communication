@@ -35,7 +35,7 @@ export function busFrom(getBus: () => NativeFederationBus | undefined): Bus {
     if (resolved === facade) {
       throw new TypeError(
         "[native-federation-communication] This busFrom bus resolves to itself, e.g. the package's " +
-          '`bus` was given to installNFBus. Install a bus from createBus() instead.'
+          '`bus` was given to installGlobalBus. Install a bus from createBus() instead.'
       );
     }
     return resolved as Bus;

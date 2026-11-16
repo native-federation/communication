@@ -34,7 +34,7 @@ for (const file of typesFiles) {
 }
 
 assert.deepEqual(Object.keys(main).sort(), ['bus', 'connectTransport']);
-assert.deepEqual(Object.keys(setup).sort(), ['busFrom', 'createBus', 'getNFBus', 'installNFBus']);
+assert.deepEqual(Object.keys(setup).sort(), ['busFrom', 'createBus', 'getGlobalBus', 'installGlobalBus']);
 assert.deepEqual(Object.keys(broadcastChannel), ['broadcastChannelTransport']);
 // ./domain holds types only, so at runtime it is an empty module
 assert.deepEqual(Object.keys(domain), []);
@@ -68,7 +68,7 @@ const install = await import(`${NAME}/install`);
 assert.deepEqual(Object.keys(install), []);
 const installed = globalThis.__NF_BUS__;
 assert.equal(installed?.protocol, 1);
-assert.equal(setup.getNFBus(), installed);
+assert.equal(setup.getGlobalBus(), installed);
 bus.emit('cart:count', 3);
 assert.equal(installed.peek('cart:count'), 3);
 

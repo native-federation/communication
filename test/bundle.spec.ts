@@ -33,8 +33,8 @@ type Copy = {
   ) => Connection | undefined;
   createBus: () => Bus;
   busFrom: (getBus: () => NativeFederationBus | undefined) => Bus;
-  getNFBus: () => Bus | undefined;
-  installNFBus: (bus: Bus) => Bus;
+  getGlobalBus: () => Bus | undefined;
+  installGlobalBus: (bus: Bus) => Bus;
 };
 
 // A distinct query string makes vite load the same file as a separate module instance, which is
@@ -142,12 +142,12 @@ describe('the published bundles', () => {
     it('installs a bus that every copy then uses', async () => {
       await install();
       const installed = globalThis.__NF_BUS__;
-      const { bus, getNFBus } = await loadCopy();
+      const { bus, getGlobalBus } = await loadCopy();
 
       bus.emit('a', 1);
 
       expect(installed?.peek('a')).toBe(1);
-      expect(getNFBus()).toBe(installed);
+      expect(getGlobalBus()).toBe(installed);
     });
 
     it('keeps the first bus when a second copy runs its install', async () => {
@@ -185,9 +185,9 @@ describe('the published bundles', () => {
     it('keeps a bus another copy installed', async () => {
       const a = await loadCopy();
       const b = await loadCopy();
-      const first = a.installNFBus(a.createBus());
+      const first = a.installGlobalBus(a.createBus());
 
-      expect(b.installNFBus(b.createBus())).toBe(first);
+      expect(b.installGlobalBus(b.createBus())).toBe(first);
     });
   });
 
@@ -279,8 +279,8 @@ describe('the published bundles', () => {
     });
 
     it('keeps a bus installed before it', async () => {
-      const { createBus, installNFBus } = await loadCopy();
-      const installed = installNFBus(createBus());
+      const { createBus, installGlobalBus } = await loadCopy();
+      const installed = installGlobalBus(createBus());
 
       expect(runScript).not.toThrow();
       expect(globalThis.__NF_BUS__).toBe(installed);

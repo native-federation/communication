@@ -6,14 +6,14 @@
 
 Every subpath is under `@softarc/native-federation-communication`:
 
-| Import                         | Exports                                            | For                                                      |
-| ------------------------------ | -------------------------------------------------- | -------------------------------------------------------- |
-| the package                    | `bus`, `connectTransport`, every type              | Everyone                                                 |
-| `/install`                     | nothing: it installs a bus                         | The host, once                                           |
-| `/setup`                       | `createBus`, `busFrom`, `getNFBus`, `installNFBus` | Custom installs, servers, tests                          |
-| `/domain`                      | every type, and the `__NF_BUS__` global            | Contracts packages: types without runtime code           |
-| `/transport/broadcast-channel` | `broadcastChannelTransport`                        | [Cross-tab](./cross-tab.md)                              |
-| `/install.js`                  | a classic script that installs a bus               | The [script tag](./getting-started.md#with-a-script-tag) |
+| Import                         | Exports                                                    | For                                                      |
+| ------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------- |
+| the package                    | `bus`, `connectTransport`, every type                      | Everyone                                                 |
+| `/install`                     | nothing: it installs a bus                                 | The host, once                                           |
+| `/setup`                       | `createBus`, `busFrom`, `getGlobalBus`, `installGlobalBus` | Custom installs, servers, tests                          |
+| `/domain`                      | every type, and the `__NF_BUS__` global                    | Contracts packages: types without runtime code           |
+| `/transport/broadcast-channel` | `broadcastChannelTransport`                                | [Cross-tab](./cross-tab.md)                              |
+| `/install.js`                  | a classic script that installs a bus                       | The [script tag](./getting-started.md#with-a-script-tag) |
 
 `/domain` exports the same types as the package itself. Augment `Channels` on the package name,
 never on `/domain`: see [Typing](./typing.md#what-the-types-dont-catch).
@@ -23,8 +23,8 @@ import { bus, connectTransport } from '@softarc/native-federation-communication'
 import {
   busFrom,
   createBus,
-  getNFBus,
-  installNFBus,
+  getGlobalBus,
+  installGlobalBus,
 } from '@softarc/native-federation-communication/setup';
 ```
 
@@ -33,24 +33,24 @@ import {
   [inert](#without-an-installed-bus).
 - `createBus()` returns a new bus that is installed nowhere: for code that takes the bus as a
   parameter, for tests, or to install yourself.
-- `getNFBus()` returns the value at `globalThis.__NF_BUS__` as is, unchecked, or `undefined`.
-- `installNFBus(instance)` installs `instance` at `globalThis.__NF_BUS__` if nothing is there, and
+- `getGlobalBus()` returns the value at `globalThis.__NF_BUS__` as is, unchecked, or `undefined`.
+- `installGlobalBus(instance)` installs `instance` at `globalThis.__NF_BUS__` if nothing is there, and
   returns whichever bus is there afterwards. The first install wins: it never replaces a bus that
   others use, so compare the result with `instance` to know whether yours is the page bus. The slot
   is read-only, so a stray assignment throws in strict mode instead of splitting the page.
 - `busFrom(getBus)` returns a frozen bus that calls `getBus()` on every call and uses the bus it
   returns, or the [inert](#without-an-installed-bus) bus when that is `undefined`. `protocol`,
-  `version` and `tap` are resolved the same way. `bus` is `busFrom(getNFBus)`. A `getBus` that is
+  `version` and `tap` are resolved the same way. `bus` is `busFrom(getGlobalBus)`. A `getBus` that is
   not a function throws a `TypeError` at once.
 
 Install a bus from `createBus()`, never `bus` or another `busFrom` bus that reads `__NF_BUS__`: it
 would resolve to itself, and its first call throws:
 
 ```text
-[native-federation-communication] This busFrom bus resolves to itself, e.g. the package's `bus` was given to installNFBus. Install a bus from createBus() instead.
+[native-federation-communication] This busFrom bus resolves to itself, e.g. the package's `bus` was given to installGlobalBus. Install a bus from createBus() instead.
 ```
 
-`/install` is `installNFBus(createBus())`. A bus kept anywhere else, such as in an iframe or a DI
+`/install` is `installGlobalBus(createBus())`. A bus kept anywhere else, such as in an iframe or a DI
 container, goes through `busFrom`:
 
 ```js
@@ -267,7 +267,7 @@ To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the b
   signals and React miss the change, because they compare references.
 - **Don't declare or assign `__NF_BUS__` on a page.** A `var __NF_BUS__` in a classic script makes it a
   plain variable that the next assignment replaces, which splits the page. Install with
-  `installNFBus`. Tests replace the bus as in [Testing](./recipes.md#testing).
+  `installGlobalBus`. Tests replace the bus as in [Testing](./recipes.md#testing).
 - **Don't delete `__NF_BUS__` on a live page.** Every copy turns inert, and the listeners on the old
   bus never hear from a new one.
 - **Don't generate channel names.** Each name keeps its value for the life of the page. Put ids in the
