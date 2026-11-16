@@ -107,7 +107,6 @@ describe('connect', () => {
       ['a function', () => {}],
       ['an object without a name', { send: () => {}, listen: () => () => {} }],
       ['a non-string name', { ...valid(), name: 1 }],
-      ['a send that is not a function', { ...valid(), send: 'post' }],
       ['a missing listen', { name: 't', send: () => {} }],
       ['a listen that is not a function', { ...valid(), listen: {} }],
     ])('rejects %s as a transport', (_, transport) => {

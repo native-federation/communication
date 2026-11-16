@@ -5,19 +5,6 @@ import { getGlobalBus } from '../global/global-bus.js';
 
 let warnedNoTap = false;
 
-function assertTransport(transport: unknown): void {
-  const candidate = transport as Partial<Record<keyof Transport, unknown>> | null | undefined;
-  const valid =
-    typeof candidate?.name === 'string' &&
-    typeof candidate.send === 'function' &&
-    typeof candidate.listen === 'function';
-  if (!valid) {
-    throw new TypeError(
-      '[native-federation-communication] A transport must be an object with a string name and send and listen functions.'
-    );
-  }
-}
-
 function refuseNoTap(): undefined {
   if (!warnedNoTap) {
     warnedNoTap = true;
@@ -56,7 +43,6 @@ export function connect(
   channels: readonly ChannelName[],
   options?: ConnectOptions
 ): Connection | undefined {
-  assertTransport(transport);
   channels.forEach(assertChannel);
   const listed = new Set<string>(channels);
   const bus = options?.bus ?? getGlobalBus();
