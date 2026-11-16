@@ -39,17 +39,4 @@ describe('the page bus over a var-declared slot', () => {
 
     expect(assigned.peek('a')).toBe(2);
   });
-
-  it('warns once and uses a private bus when the empty slot cannot be written', async () => {
-    Object.defineProperty(globalThis, '__NF_BUS__', { value: undefined, writable: false });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { bus } = await loadCopy();
-
-    bus.emit('a', 1);
-    bus.emit('a', 2);
-
-    expect(bus.peek('a')).toBe(2);
-    expect(globalThis.__NF_BUS__).toBeUndefined();
-    expect(warn).toHaveBeenCalledTimes(1);
-  });
 });

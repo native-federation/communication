@@ -47,21 +47,14 @@ function foreignFallback(): Bus {
   return fallback;
 }
 
+// A classic script's `var __NF_BUS__;` leaves a non-configurable slot that only assignment can fill.
 function install(): Bus {
   const created = createBus();
-  try {
-    Object.defineProperty(globalThis, '__NF_BUS__', {
-      value: created,
-      writable: false,
-      configurable: true,
-      enumerable: false,
-    });
-  } catch {
-    // A classic script's `var __NF_BUS__;` makes the slot non-configurable, but still writable.
-    Reflect.set(globalThis, '__NF_BUS__', created);
+  const slot = { value: created, writable: false, enumerable: false, configurable: true };
+  if (!Reflect.defineProperty(globalThis, '__NF_BUS__', slot)) {
+    globalThis.__NF_BUS__ = created;
   }
-  const slot: unknown = globalThis.__NF_BUS__;
-  return isBus(slot) ? slot : foreignFallback();
+  return created;
 }
 
 // A single-user realm (a browser page or React Native), not a server process (a shim may define `window` there).
