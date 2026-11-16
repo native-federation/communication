@@ -251,8 +251,6 @@ describe('broadcastTransport', () => {
       const unlisten = transport.listen(receive);
 
       expect(unlisten).toBeTypeOf('function');
-      // The same one-listen rule as with BroadcastChannel, so React Native behaves like a browser.
-      expect(() => transport.listen(receive)).toThrow(/is already listening/);
       expect(() => unlisten()).not.toThrow();
       expect(() => transport.listen(receive)()).not.toThrow();
       expect(() => transport.send({ channel: 'x', value: 1, retain: true })).not.toThrow();

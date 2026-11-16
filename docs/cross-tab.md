@@ -55,8 +55,8 @@ All tabs share one wire, `native-federation-communication`. A private `createBus
 `{ bus }` on that wire cross-talks with the page bus, so give it its own:
 `broadcastTransport('my-tests')`.
 
-One instance per connection: connecting an instance to a second bus throws. Give each bus its own
-instance.
+One instance per connection: connecting an instance to a second bus throws (where
+`BroadcastChannel` exists). Give each bus its own instance.
 
 ## Scope
 
