@@ -141,7 +141,7 @@ native app.
 import { connectTransport } from '@softarc/native-federation-communication';
 
 const connection = connectTransport(transport, ['cart:changed', 'auth:user']);
-connection?.replay(); // send this side's retained values, e.g. when the other side (re)loads
+connection?.replayRetained(); // send this side's retained values, e.g. when the other side (re)loads
 connection?.close(); // stop both directions; safe to call twice
 ```
 

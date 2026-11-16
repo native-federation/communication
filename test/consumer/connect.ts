@@ -37,7 +37,7 @@ connectTransport(broadcastChannelTransport(), ['cart:count'], { bus: found });
 getNFBus({});
 // @ts-expect-error there is no custom location any more
 installNFBus(createBus(), {});
-tabs?.replay();
+tabs?.replayRetained();
 tabs?.close();
 // @ts-expect-error connectTransport returns undefined when refused
 connectTransport(broadcastChannelTransport(), ['cart:count']).close();

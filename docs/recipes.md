@@ -233,7 +233,7 @@ export function Shop() {
   const webView = useRef(null);
   const connection = useRef(null);
   const [transport] = useState(() =>
-    webViewTransport('webview:shop', webView, () => connection.current?.replay())
+    webViewTransport('webview:shop', webView, () => connection.current?.replayRetained())
   );
 
   useEffect(() => {

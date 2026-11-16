@@ -16,7 +16,7 @@ function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
     throw error;
   }
   return {
-    replay: tap.replay,
+    replayRetained: tap.replay,
     close: () => {
       tap.close();
       const stop = unlisten;

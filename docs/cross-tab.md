@@ -43,7 +43,7 @@ and `{ retain: false }` clears the other tab's retained value.
 ## Live only
 
 A new tab gets nothing until the next emit; read the initial state from the server or the URL.
-`connection?.replay()` only pushes this tab's retained values to the others, overwriting theirs. Emits
+`connection?.replayRetained()` only pushes this tab's retained values to the others, overwriting theirs. Emits
 from two tabs at the same moment may leave the tabs with different values; there is no
 last-writer-wins.
 
