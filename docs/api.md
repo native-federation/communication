@@ -60,7 +60,8 @@ Returns the retained value, or `undefined`. A retained `undefined` looks the sam
   skipped.
 - **Isolation.** A throwing listener doesn't stop the producer or the other listeners. The error goes to
   `reportError` (in a browser, reported like an uncaught error), or to `console.error` without it.
-- **Same reference.** Listeners and `peek` get the producer's object. Nothing is copied or frozen.
+- **Same reference.** Listeners and `peek` get the producer's object. Nothing is copied or frozen,
+  except values received from another tab (see [cross-tab](./cross-tab.md)).
 - **No loop guard.** Two listeners that keep emitting to each other loop forever.
 
 To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the browser console.

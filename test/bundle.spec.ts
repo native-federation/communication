@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import vm from 'node:vm';
 import { JSDOM, VirtualConsole } from 'jsdom';
@@ -10,6 +10,7 @@ import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
 const DIST = resolve(__dirname, '.dist');
 const ESM = resolve(DIST, 'fesm2022/@softarc/native-federation-communication.mjs');
 const SCRIPT = readFileSync(resolve(DIST, 'init-bus.js'), 'utf8');
+const CROSS_TAB_PATH = 'fesm2022/@softarc/native-federation-communication-cross-tab.mjs';
 
 type Copy = { bus: Bus; createBus: () => Bus };
 
@@ -19,6 +20,15 @@ let copies = 0;
 async function loadCopy(): Promise<Copy> {
   copies += 1;
   return import(/* @vite-ignore */ `${ESM}?copy=${copies}`);
+}
+
+type CrossTabCopy = {
+  shareAcrossTabs: (channels: string[], options?: { bus?: NativeFederationBus }) => () => void;
+};
+
+async function loadCrossTab(): Promise<CrossTabCopy> {
+  copies += 1;
+  return import(/* @vite-ignore */ `${resolve(DIST, CROSS_TAB_PATH)}?copy=${copies}`);
 }
 
 const runInitScript = (): void => new Function(SCRIPT)();
@@ -191,6 +201,74 @@ describe('the published bundles', () => {
 
       expect(() => vm.runInContext(SCRIPT, context)).not.toThrow();
       expect(vm.runInContext('typeof __NF_BUS__', context)).toBe('undefined');
+    });
+  });
+
+  describe('the cross-tab subpath', () => {
+    // Counts the ports the copies open; messages still travel over the real BroadcastChannel.
+    const ports: BroadcastChannel[] = [];
+    const stops: (() => void)[] = [];
+    class CountingChannel extends BroadcastChannel {
+      constructor(name: string) {
+        super(name);
+        ports.push(this);
+      }
+    }
+
+    beforeEach(() => {
+      vi.stubGlobal('BroadcastChannel', CountingChannel);
+    });
+
+    // An open channel keeps the worker alive.
+    afterEach(() => {
+      stops.splice(0).forEach(stop => stop());
+      ports.length = 0;
+    });
+
+    it('is in the exports map, and every path it names exists', () => {
+      const manifest = JSON.parse(readFileSync(resolve(DIST, 'package.json'), 'utf8')) as {
+        exports: Record<string, Record<string, string>>;
+      };
+      const entry = manifest.exports['./cross-tab']!;
+
+      expect(entry).toEqual({
+        types: './types/cross-tab.d.ts',
+        import: `./${CROSS_TAB_PATH}`,
+        default: `./${CROSS_TAB_PATH}`,
+      });
+      Object.values(entry).forEach(file =>
+        expect(existsSync(resolve(DIST, file)), file).toBe(true)
+      );
+    });
+
+    // Spec test 17: two copies installed on the page bus open one port between them; a private
+    // bus stands in for the other tab.
+    it('forwards each value once when two copies install it on the page', async () => {
+      const channel = 'test:cross-tab';
+      const [one, two] = [await loadCrossTab(), await loadCrossTab()];
+      const { bus, createBus } = await loadCopy();
+      const otherTab = createBus();
+      const here: unknown[] = [];
+      const there: unknown[] = [];
+      bus.on(channel, value => here.push(value));
+      otherTab.on(channel, value => there.push(value));
+
+      stops.push(one.shareAcrossTabs([channel]), two.shareAcrossTabs([channel]));
+      stops.push(one.shareAcrossTabs([channel], { bus: otherTab }));
+      bus.emit(channel, 1);
+      bus.emit(channel, 2);
+      await vi.waitFor(() => expect(there).toEqual([1, 2]));
+      otherTab.emit(channel, 3);
+      await vi.waitFor(() => expect(here).toEqual([1, 2, 3]));
+
+      // Fences in both directions: a duplicate or an echo sent earlier by the same port would
+      // have arrived before them.
+      bus.emit(channel, 4);
+      await vi.waitFor(() => expect(there).toEqual([1, 2, 3, 4]));
+      otherTab.emit(channel, 5);
+      await vi.waitFor(() => expect(here).toEqual([1, 2, 3, 4, 5]));
+      expect(ports).toHaveLength(2);
+      expect(globalThis.__NF_BUS__?.peek(channel)).toBe(5);
     });
   });
 });

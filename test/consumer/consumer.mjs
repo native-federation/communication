@@ -16,7 +16,10 @@ const typesFiles = [
   manifest.typings,
   ...Object.values(manifest.exports).flatMap(entry => entry.types ?? []),
 ];
-assert.deepEqual([...new Set(typesFiles)], ['./types/index.d.ts', './types/domain.d.ts']);
+assert.deepEqual(
+  [...new Set(typesFiles)],
+  ['./types/index.d.ts', './types/domain.d.ts', './types/cross-tab.d.ts']
+);
 for (const file of typesFiles) {
   assert.ok(existsSync(join(dirname(manifestPath), file)), `${file} is missing`);
 }

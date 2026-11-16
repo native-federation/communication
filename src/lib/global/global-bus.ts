@@ -76,7 +76,7 @@ function install(): Bus {
 }
 
 // One realm per user: a browser page, not a server process (a shim may define `window` there).
-const isPage = (): boolean => typeof window !== 'undefined' && window === globalThis;
+export const isPage = (): boolean => typeof window !== 'undefined' && window === globalThis;
 
 export function getGlobalBus(): Bus {
   const slot: unknown = globalThis.__NF_BUS__;

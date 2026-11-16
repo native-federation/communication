@@ -103,6 +103,13 @@ describe('the built package, consumed by name', () => {
     }
   );
 
+  it.each(Object.keys(RESOLUTIONS) as (keyof typeof RESOLUTIONS)[])(
+    'types the ./cross-tab subpath (%s resolution)',
+    resolution => {
+      expect(typeErrors('cross-tab.ts', resolution)).toEqual([]);
+    }
+  );
+
   it.each(readdirSync(join(FIXTURES, 'typing')))(
     'publishes the %s typing recipe verbatim in docs/typing.md',
     file => {
