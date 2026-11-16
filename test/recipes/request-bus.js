@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createBus } from '@softarc/native-federation-communication/internal';
+import { createBus, installNFBus } from '@softarc/native-federation-communication/internal';
 
 const requests = new AsyncLocalStorage();
 
@@ -14,13 +14,16 @@ export function installRequestBus() {
     warned = true;
     return result;
   };
-  globalThis.__NF_BUS__ = Object.freeze({
+  const requestBus = Object.freeze({
     protocol: 1,
     version: createBus().version,
     emit: (...args) => call('emit', args),
     on: (...args) => call('on', args),
     peek: (...args) => call('peek', args),
   });
+  // a bus installed earlier would be shared by every request, so refuse to run on top of it
+  if (installNFBus(requestBus) !== requestBus)
+    throw new Error('__NF_BUS__ already holds another bus.');
 }
 
 export const withRequestBus = handle => requests.run(createBus(), handle);

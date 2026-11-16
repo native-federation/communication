@@ -140,7 +140,7 @@ forwards each call to the current request's own bus:
 
 ```js
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createBus } from '@softarc/native-federation-communication/internal';
+import { createBus, installNFBus } from '@softarc/native-federation-communication/internal';
 
 const requests = new AsyncLocalStorage();
 
@@ -155,13 +155,16 @@ export function installRequestBus() {
     warned = true;
     return result;
   };
-  globalThis.__NF_BUS__ = Object.freeze({
+  const requestBus = Object.freeze({
     protocol: 1,
     version: createBus().version,
     emit: (...args) => call('emit', args),
     on: (...args) => call('on', args),
     peek: (...args) => call('peek', args),
   });
+  // a bus installed earlier would be shared by every request, so refuse to run on top of it
+  if (installNFBus(requestBus) !== requestBus)
+    throw new Error('__NF_BUS__ already holds another bus.');
 }
 
 export const withRequestBus = handle => requests.run(createBus(), handle);
@@ -172,10 +175,11 @@ installRequestBus();
 server.on('request', (req, res) => withRequestBus(() => render(req, res)));
 ```
 
-Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share the request's
-bus, across `await` too. A call outside a request is checked, then dropped with one warning. With a
-browser and a server entry, keep the `/quickstart` import in the browser one, such as `main.ts`, and
-call `installRequestBus()` from the server one.
+`installRequestBus` throws when something installed a bus first, since every request would share
+that one. Every copy uses what is in `__NF_BUS__`, so the host and every remote's server code share
+the request's bus, across `await` too. A call outside a request is checked, then dropped with one
+warning. With a browser and a server entry, keep the `/quickstart` import in the browser one, such as
+`main.ts`, and call `installRequestBus()` from the server one.
 
 ## React Native and WebView
 

@@ -53,5 +53,8 @@ Node, Deno, Bun, workers and iframes:
 - **One user per process** (a CLI, a worker, Electron's main process): import `/quickstart` at
   startup. Never on a server that serves many users.
 - **Server-side rendering**: never import `/quickstart` in server code. Install the request-scoped bus
-  from [the SSR recipe](./recipes.md#server-side-rendering) at boot; without it, the bus stays inert
-  on the server.
+  from [the SSR recipe](./recipes.md#server-side-rendering) at boot. Without it, the bus stays inert
+  on the server, but only when every copy is this release or newer.
+- **Copies older than this release** (4.0.0-next.0 and next.1) still install a bus on first use
+  wherever `window === globalThis`, as on a server with a DOM shim or on Deno 1.x. On a server that is
+  one bus for all requests, so install the SSR recipe's bus at boot to keep the slot taken.

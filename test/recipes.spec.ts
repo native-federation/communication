@@ -100,6 +100,11 @@ describe('the custom element recipe', () => {
 });
 
 describe('the request bus recipe', () => {
+  // The testing setup stubs a bus into the slot, and installRequestBus refuses to run on top of one.
+  beforeEach(() => {
+    delete globalThis.__NF_BUS__;
+  });
+
   afterEach(() => {
     delete globalThis.__NF_BUS__;
   });
@@ -185,6 +190,28 @@ describe('the request bus recipe', () => {
     expect(() => slot.on?.('recipe:user')).toThrow(TypeError);
     expect(() => slot.peek?.(null)).toThrow(TypeError);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  // The slot takes only the first install: a process-wide bus already there would leak between
+  // requests, so the recipe refuses to start on top of it.
+  it('throws when another bus is already installed, and leaves that bus in place', async () => {
+    const { installRequestBus } = await recipe('request-bus');
+    const { createBus, installNFBus } = await import(`${pkg}/internal`);
+    const first = installNFBus(createBus());
+
+    expect(() => installRequestBus()).toThrow(/already holds another bus/);
+    expect(globalThis.__NF_BUS__).toBe(first);
+  });
+
+  it('installs a read-only, non-enumerable slot', async () => {
+    const { installRequestBus } = await recipe('request-bus');
+    installRequestBus();
+
+    expect(Object.getOwnPropertyDescriptor(globalThis, '__NF_BUS__')).toMatchObject({
+      writable: false,
+      enumerable: false,
+      configurable: true,
+    });
   });
 
   it('still serves requests after an out-of-scope call', async () => {
