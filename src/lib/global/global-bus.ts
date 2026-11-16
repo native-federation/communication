@@ -7,7 +7,8 @@ const METHODS = ['emit', 'on', 'peek'] as const;
 let fallback: Bus | undefined;
 let warnedInert = false;
 
-function warnInert(): void {
+function dropped(channel: unknown): undefined {
+  assertChannel(channel);
   if (warnedInert) return;
   warnedInert = true;
   console.warn(
@@ -20,21 +21,9 @@ function warnInert(): void {
 const inert: Bus = Object.freeze({
   protocol: 1,
   version: VERSION,
-  emit: (channel: string) => {
-    assertChannel(channel);
-    warnInert();
-  },
-  on: (channel: string, listener: unknown) => {
-    assertChannel(channel);
-    assertListener(listener);
-    warnInert();
-    return noop;
-  },
-  peek: (channel: string) => {
-    assertChannel(channel);
-    warnInert();
-    return undefined;
-  },
+  emit: dropped,
+  on: (channel: string, listener: unknown) => (assertListener(listener), dropped(channel), noop),
+  peek: dropped,
 });
 
 const isBus = (slot: unknown): slot is Bus => {
