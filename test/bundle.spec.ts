@@ -32,8 +32,9 @@ type Copy = {
     options?: ConnectOptions
   ) => Connection | undefined;
   createBus: () => Bus;
-  getNFBus: (loc?: object) => Bus | undefined;
-  installNFBus: (bus: Bus, loc?: object) => Bus;
+  busFrom: (get: () => NativeFederationBus | undefined) => Bus;
+  getNFBus: () => Bus | undefined;
+  installNFBus: (bus: Bus) => Bus;
 };
 
 // A distinct query string makes vite load the same file as a separate module instance, which is
@@ -134,7 +135,7 @@ describe('the published bundles', () => {
     bus.emit('a', 1);
 
     expect(globalThis.__NF_BUS__).toBeUndefined();
-    expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is installed/);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is available here/);
   });
 
   describe('./quickstart', () => {
@@ -162,20 +163,21 @@ describe('the published bundles', () => {
   });
 
   describe('./internal', () => {
-    it('installs into and reads a custom location, which connect then uses', async () => {
-      const { connect, createBus, getNFBus, installNFBus } = await loadCopy();
-      const loc = {};
-      const created = createBus();
+    it('builds a bus over a custom source with busFrom, which connect then uses', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { busFrom, connect, createBus } = await loadCopy();
+      const holder: { bus?: Bus } = {};
+      const facade = busFrom(() => holder.bus);
       const sent: unknown[] = [];
       const transport = { name: 't', send: (e: unknown) => sent.push(e), listen: () => () => {} };
 
-      expect(installNFBus(created, loc)).toBe(created);
-      expect(installNFBus(createBus(), loc)).toBe(created);
-      const connection = connect(transport, ['a'], { bus: getNFBus(loc) });
-      created.emit('a', 1);
+      expect(connect(transport, ['a'], { bus: facade })).toBeUndefined();
+      holder.bus = createBus();
+      const connection = connect(transport, ['a'], { bus: facade });
+      facade.emit('a', 1);
       connection?.close();
 
-      expect(getNFBus(loc)).toBe(created);
+      expect(holder.bus.peek('a')).toBe(1);
       expect(sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
       expect(globalThis.__NF_BUS__).toBeUndefined();
     });

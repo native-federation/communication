@@ -18,13 +18,6 @@ describe('the __NF_BUS__ slot', () => {
       globalThis.__NF_BUS__ = installed;
       expect(getNFBus()).toBe(installed);
     });
-
-    it('reads a custom location', () => {
-      const installed = createBus();
-
-      expect(getNFBus({})).toBeUndefined();
-      expect(getNFBus({ __NF_BUS__: installed })).toBe(installed);
-    });
   });
 
   describe('installNFBus', () => {
@@ -60,26 +53,6 @@ describe('the __NF_BUS__ slot', () => {
       (globalThis as { __NF_BUS__?: unknown }).__NF_BUS__ = foreign;
 
       expect(installNFBus(createBus())).toBe(foreign);
-    });
-
-    it('installs into a custom location only', () => {
-      const loc = {};
-      const created = createBus();
-
-      expect(installNFBus(created, loc)).toBe(created);
-      expect(getNFBus(loc)).toBe(created);
-      expect(Object.getOwnPropertyDescriptor(loc, '__NF_BUS__')).toMatchObject({
-        writable: false,
-        enumerable: false,
-        configurable: true,
-      });
-      expect(installNFBus(createBus(), loc)).toBe(created);
-      expect(globalThis.__NF_BUS__).toBeUndefined();
-    });
-
-    // defineProperty returns false there, and the fallback assignment throws in strict mode.
-    it('throws when the location cannot take the slot', () => {
-      expect(() => installNFBus(createBus(), Object.freeze({}))).toThrow(TypeError);
     });
 
     it('works with destructured methods of the installed bus', () => {

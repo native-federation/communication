@@ -1,14 +1,12 @@
 import type { Bus } from '../domain/bus/bus.contract.js';
 
-type Slot = { __NF_BUS__?: Bus };
-
-export const getNFBus = (loc: object = globalThis): Bus | undefined => (loc as Slot).__NF_BUS__;
+export const getNFBus = (): Bus | undefined => globalThis.__NF_BUS__ as Bus | undefined;
 
 // A classic script's `var __NF_BUS__;` leaves a non-configurable slot that only assignment can fill.
-export function installNFBus(bus: Bus, loc: object = globalThis): Bus {
-  if (getNFBus(loc) === undefined) {
+export function installNFBus(bus: Bus): Bus {
+  if (getNFBus() === undefined) {
     const slot = { value: bus, writable: false, enumerable: false, configurable: true };
-    if (!Reflect.defineProperty(loc, '__NF_BUS__', slot)) (loc as Slot).__NF_BUS__ = bus;
+    if (!Reflect.defineProperty(globalThis, '__NF_BUS__', slot)) globalThis.__NF_BUS__ = bus;
   }
-  return getNFBus(loc) as Bus;
+  return getNFBus() as Bus;
 }

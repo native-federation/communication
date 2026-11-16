@@ -26,7 +26,7 @@ function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
   };
 }
 
-// An explicit `bus: undefined`, e.g. getNFBus(loc) on an empty loc, must not fall back to the page bus.
+// An explicit `bus: undefined`, e.g. an iframe's empty slot, must not fall back to the page bus.
 const chosenBus = (options?: ConnectOptions) =>
   options && 'bus' in options ? options.bus : globalBus;
 

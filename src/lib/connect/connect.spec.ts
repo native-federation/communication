@@ -166,8 +166,8 @@ describe('connect', () => {
       expect(transport.sent).toHaveLength(1);
     });
 
-    // getNFBus(loc) on a location nothing was installed into: bridging the page bus instead would
-    // quietly join the two buses the custom location keeps apart.
+    // e.g. `{ bus: frame.contentWindow?.__NF_BUS__ }` before the frame installed its bus: bridging
+    // the page bus instead would quietly join the two buses the frame keeps apart.
     it('is refused for an explicit undefined bus, even with a bus installed on the global', () => {
       const installed = createBus();
       globalThis.__NF_BUS__ = installed;

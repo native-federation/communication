@@ -186,8 +186,8 @@ then drops the call. `emit` delivers nothing, `on` returns an `off` that does no
 `undefined`, and `tap` is `undefined`. The first dropped call warns, once per copy of the package:
 
 ```text
-[native-federation-communication] No bus is installed, so this bus drops every value. Import
-'@softarc/native-federation-communication/quickstart' or install one via
+[native-federation-communication] No bus is available here, so this call is dropped. Install one
+with '@softarc/native-federation-communication/quickstart' or via
 '@softarc/native-federation-communication/internal'.
 ```
 

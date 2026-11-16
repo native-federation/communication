@@ -34,7 +34,7 @@ for (const file of typesFiles) {
 }
 
 assert.deepEqual(Object.keys(main).sort(), ['bus', 'connect']);
-assert.deepEqual(Object.keys(internal).sort(), ['createBus', 'getNFBus', 'installNFBus']);
+assert.deepEqual(Object.keys(internal).sort(), ['busFrom', 'createBus', 'getNFBus', 'installNFBus']);
 assert.deepEqual(Object.keys(crossTab), ['broadcastTransport']);
 // ./domain holds types only, so at runtime it is an empty module
 assert.deepEqual(Object.keys(domain), []);
@@ -56,10 +56,11 @@ assert.equal(bus.peek('cart:count'), undefined);
 assert.equal(globalThis.__NF_BUS__, undefined);
 assert.equal(warnings.length, 1);
 
-// A custom location is any object, and the global stays empty.
-const loc = {};
-const scoped = internal.installNFBus(createBus(), loc);
-assert.equal(internal.getNFBus(loc), scoped);
+// busFrom serves a bus from any source, and the global stays empty.
+const scoped = createBus();
+const facade = internal.busFrom(() => scoped);
+facade.emit('cart:count', 4);
+assert.equal(scoped.peek('cart:count'), 4);
 assert.equal(globalThis.__NF_BUS__, undefined);
 
 // ./quickstart installs a bus, under node too, exports nothing, and `bus` follows it.

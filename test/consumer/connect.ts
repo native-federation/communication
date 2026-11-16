@@ -14,6 +14,7 @@ import {
 } from '@softarc/native-federation-communication';
 import type * as domain from '@softarc/native-federation-communication/domain';
 import {
+  busFrom,
   createBus,
   getNFBus,
   installNFBus,
@@ -25,11 +26,17 @@ connect(broadcastTransport('my-app'), ['cart:count'], { bus });
 connect(broadcastTransport(), ['cart:count'], { bus: createBus() });
 connect(broadcastTransport(), ['cart:count'], { bus: globalThis.__NF_BUS__! });
 
-// A custom location is any object; getNFBus hands its bus to connect.
-const loc = {};
-export const installed: Bus = installNFBus(createBus(), loc);
-export const found: Bus | undefined = getNFBus(loc);
+// A custom location goes through busFrom; getNFBus and installNFBus only use the global slot.
+const frame = { __NF_BUS__: createBus() as NativeFederationBus | undefined };
+export const framed: Bus = busFrom(() => frame.__NF_BUS__);
+connect(broadcastTransport(), ['cart:count'], { bus: framed });
+export const installed: Bus = installNFBus(createBus());
+export const found: Bus | undefined = getNFBus();
 connect(broadcastTransport(), ['cart:count'], { bus: found });
+// @ts-expect-error there is no custom location any more
+getNFBus({});
+// @ts-expect-error there is no custom location any more
+installNFBus(createBus(), {});
 tabs?.replay();
 tabs?.close();
 // @ts-expect-error connect returns undefined when refused

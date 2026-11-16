@@ -173,7 +173,7 @@ describe('the request bus recipe', () => {
     expect(listener).not.toHaveBeenCalled();
     expect(off).toBeTypeOf('function');
     expect(warn).toHaveBeenCalledOnce();
-    expect(warn.mock.calls[0]?.[0]).toMatch(/outside a request/);
+    expect(warn.mock.calls[0]?.[0]).toMatch(/No bus is available here/);
   });
 
   // Like the package's inert bus: a bad argument throws before anything is warned or dropped.

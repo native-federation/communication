@@ -56,7 +56,7 @@ describe('the global bus', () => {
       expect(globalThis.__NF_BUS__).toBeUndefined();
     });
 
-    it('warns once per copy that no bus is installed and how to install one', async () => {
+    it('warns once per copy that no bus is available and how to install one', async () => {
       const { bus } = await loadCopy();
 
       bus.emit('a', 1);
@@ -65,7 +65,7 @@ describe('the global bus', () => {
 
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0]?.[0]).toMatch(
-        /No bus is installed.*\/quickstart'.*native-federation-communication\/internal'/s
+        /No bus is available here.*\/quickstart'.*native-federation-communication\/internal'/s
       );
 
       (await loadCopy()).bus.peek('a');
