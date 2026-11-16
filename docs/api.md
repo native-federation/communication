@@ -140,7 +140,8 @@ connection?.close(); // stop both directions; safe to call twice
   channel is emitted on this side and not sent back. Other channels and anything that is not an
   envelope are ignored.
 - `{ bus }` connects another bus, such as one from `createBus()` or `getNFBus(loc)`, instead of the
-  page bus.
+  page bus. An explicit `{ bus: undefined }`, which `getNFBus(loc)` gives for an empty `loc`, is
+  refused like a bus without `tap`, never replaced by the page bus.
 - `connect` returns `undefined` when refused: when the bus has no `tap`, because no bus is installed
   or an older copy installed it (it then warns), or when its `name` is taken on that bus.
 - A `send` that throws is reported like a throwing listener. Local listeners have the value already.

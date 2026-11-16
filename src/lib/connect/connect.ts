@@ -26,6 +26,10 @@ function link(transport: Transport, tap: Tap, listed: Set<string>): Connection {
   };
 }
 
+// An explicit `bus: undefined`, e.g. getNFBus(loc) on an empty loc, must not fall back to the page bus.
+const chosenBus = (options?: ConnectOptions) =>
+  options && 'bus' in options ? options.bus : globalBus;
+
 export function connect(
   transport: Transport,
   channels: readonly ChannelName[],
@@ -33,8 +37,8 @@ export function connect(
 ): Connection | undefined {
   channels.forEach(assertChannel);
   const listed = new Set<string>(channels);
-  const bus = options?.bus ?? globalBus;
-  if (!bus.tap) {
+  const bus = chosenBus(options);
+  if (!bus?.tap) {
     console.warn(
       '[native-federation-communication] This bus cannot connect transports: no bus is installed, ' +
         'or an older copy installed it.'

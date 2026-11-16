@@ -155,6 +155,34 @@ describe('connect', () => {
       expect(transport.sent).toHaveLength(1);
     });
 
+    it('uses the global bus when the options leave out bus', () => {
+      const installed = createBus();
+      globalThis.__NF_BUS__ = installed;
+      const transport = endpoint();
+
+      connect(transport, ['a'], {});
+      installed.emit('a', 1);
+
+      expect(transport.sent).toHaveLength(1);
+    });
+
+    // getNFBus(loc) on a location nothing was installed into: bridging the page bus instead would
+    // quietly join the two buses the custom location keeps apart.
+    it('is refused for an explicit undefined bus, even with a bus installed on the global', () => {
+      const installed = createBus();
+      globalThis.__NF_BUS__ = installed;
+      const transport = endpoint();
+
+      const connection = connect(transport, ['a'], { bus: undefined });
+      installed.emit('a', 1);
+
+      expect(connection).toBeUndefined();
+      expect(transport.listen).not.toHaveBeenCalled();
+      expect(transport.sent).toEqual([]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls[0]?.[0]).toMatch(/cannot connect transports: no bus is installed/);
+    });
+
     // With nothing installed the global bus is the inert one, which has no tap.
     it('is refused when no bus is installed', () => {
       const transport = endpoint();
@@ -347,6 +375,28 @@ describe('connect', () => {
       expect(received).toEqual([1]);
       expect(bus.peek('a')).toBe(1);
       expect(healthy.sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
+    });
+
+    // connect does not check send: the TypeError from calling it surfaces on each emit, reported
+    // like a throwing send.
+    it('reports a send that is not a function on each emit and keeps local delivery', () => {
+      const reportError = stubReportError();
+      const bus = createBus();
+      const transport = { name: 't', send: 'post', listen: () => () => {} };
+      const connection = connect(transport as never, ['a'], { bus });
+      const received = live(bus, 'a');
+
+      bus.emit('a', 1);
+      bus.emit('a', 2);
+
+      expect(connection).toBeDefined();
+      expect(received).toEqual([1, 2]);
+      expect(bus.peek('a')).toBe(2);
+      expect(reportError).toHaveBeenCalledTimes(2);
+      expect(reportError.mock.calls.map(([error]) => error)).toEqual([
+        expect.any(TypeError),
+        expect.any(TypeError),
+      ]);
     });
   });
 
