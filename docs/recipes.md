@@ -286,7 +286,7 @@ export function Shop() {
   const webView = useRef(null);
   const connection = useRef(null);
   const [transport] = useState(() =>
-    webViewTransport('webview:shop', webView, () => connection.current?.replayRetained())
+    webViewTransport('webview:shop', webView, () => connection.current?.replay())
   );
 
   useEffect(() => {
@@ -306,7 +306,7 @@ export function Shop() {
 
 - Values cross as JSON: functions and `undefined` fields are dropped, a `Date` arrives as a string.
 - A loaded or reloaded page starts empty, so the app sends its retained values with
-  `replayRetained()` when the page posts `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated
+  `replay()` when the page posts `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated
   page often connects after its load event.
 - Give each `WebView` its own transport name, since a bus connects a name once.
 - The injected script ends with `true;`, as react-native-webview asks.

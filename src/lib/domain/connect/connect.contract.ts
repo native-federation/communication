@@ -6,5 +6,5 @@ export type Transport = {
   send(envelope: Envelope): void;
   listen(receive: (envelope: Envelope) => void): Unsubscribe;
 };
-export type Connection = { replayRetained(): void; close(): void };
+export type Connection = { replay(): void; close(): void };
 export type ConnectTransportOptions = { bus?: Bus | NativeFederationBus | undefined };

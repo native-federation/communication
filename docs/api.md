@@ -179,20 +179,20 @@ or `undefined` when [refused](#a-refused-connection).
 import { connectTransport } from '@softarc/native-federation-communication';
 
 const connection = connectTransport(transport, ['cart:changed', 'auth:user']);
-connection?.replayRetained(); // send this side's retained values, e.g. when the other side (re)loads
+connection?.replay(); // send this side's retained values, e.g. when the other side (re)loads
 connection?.close(); // stop both directions; safe to call twice
 ```
 
 - **Outgoing.** From the moment it connects, every emit on a listed channel is passed to
   `transport.send` as an envelope, with its `retain`. Values retained before that are not sent until
-  you call `replayRetained()`.
+  you call `replay()`.
 - **Incoming.** Every envelope that `transport.listen` receives for a listed channel is emitted on
   this side, with its `retain`, and not sent back. Envelopes for other channels, and messages that are
   not envelopes, are ignored.
 - **`{ bus }`** connects that bus, such as one from `createBus()` or [`busFrom`](#busfromgetbus),
   instead of the installed bus. An explicit `{ bus: undefined }`, such as an iframe's empty slot, is
   refused; it never falls back to the installed bus.
-- **`replayRetained()`** sends this side's retained values of the listed channels, one per channel,
+- **`replay()`** sends this side's retained values of the listed channels, one per channel,
   with `retain: true`, so they overwrite the other side's. It doesn't request the other side's values.
 - **`close()`** closes the tap, frees the name and calls the cleanup that `listen` returned.
 

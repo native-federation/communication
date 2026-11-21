@@ -600,7 +600,7 @@ describe('connect', () => {
     });
   });
 
-  describe('replayRetained', () => {
+  describe('replay', () => {
     it('sends every retained listed value, retained undefined included, and nothing else', () => {
       const bus = createBus();
       bus.emit('a', 1);
@@ -610,7 +610,7 @@ describe('connect', () => {
       const transport = endpoint();
       const connection = connectTransport(transport, ['a', 'b', 'command'], { bus })!;
 
-      connection.replayRetained();
+      connection.replay();
 
       expect(transport.sent).toEqual([
         { channel: 'a', value: 1, retain: true },
@@ -627,7 +627,7 @@ describe('connect', () => {
       connectTransport(tb, ['cart'], { bus: b });
       expect(b.peek('cart')).toBeUndefined();
 
-      atA.replayRetained();
+      atA.replay();
 
       expect(b.peek('cart')).toBe(3);
       // b applied it without sending it back.
@@ -642,7 +642,7 @@ describe('connect', () => {
       const connection = connectTransport(one, ['a'], { bus })!;
       connectTransport(two, ['a'], { bus });
 
-      connection.replayRetained();
+      connection.replay();
 
       expect(one.sent).toHaveLength(1);
       expect(two.sent).toEqual([]);
@@ -659,7 +659,7 @@ describe('connect', () => {
       connection.close();
       bus.emit('a', 1);
       transport.inject({ channel: 'a', value: 2, retain: true });
-      connection.replayRetained();
+      connection.replay();
 
       expect(transport.unlistens).toBe(1);
       expect(transport.receivers.size).toBe(0);

@@ -268,7 +268,7 @@ describe('broadcastChannelTransport', () => {
       bus.on('x', value => received.push(value));
 
       bus.emit('x', 1);
-      connection.replayRetained();
+      connection.replay();
       connection.close();
 
       expect(received).toEqual([1]);
@@ -337,13 +337,13 @@ describe('broadcastChannelTransport', () => {
       expect(atB).toEqual([1, 2]);
     });
 
-    it('replayRetained pushes this tab’s retained state to a tab that connected later', async () => {
+    it('replay pushes this tab’s retained state to a tab that connected later', async () => {
       const wire = fresh();
       const a = tab(wire, ['cart']);
       a.bus.emit('cart', 3);
       const b = tab(wire, ['cart']);
 
-      a.connection.replayRetained();
+      a.connection.replay();
 
       await vi.waitFor(() => expect(b.bus.peek('cart')).toBe(3));
     });
