@@ -179,20 +179,20 @@ or `undefined` when [refused](#a-refused-connection).
 import { connectTransport } from '@softarc/native-federation-communication';
 
 const connection = connectTransport(transport, ['cart:changed', 'auth:user']);
-connection?.replayRetained(); // send this side's retained values, e.g. when the other side (re)loads
+connection?.replay(); // send this side's retained values, e.g. when the other side (re)loads
 connection?.close(); // stop both directions; safe to call twice
 ```
 
 - **Outgoing.** From the moment it connects, every emit on a listed channel is passed to
   `transport.send` as an envelope, with its `retain`. Values retained before that are not sent until
-  you call `replayRetained()`.
+  you call `replay()`.
 - **Incoming.** Every envelope that `transport.listen` receives for a listed channel is emitted on
   this side, with its `retain`, and not sent back. Envelopes for other channels, and messages that are
   not envelopes, are ignored.
 - **`{ bus }`** connects that bus, such as one from `createBus()` or [`busFrom`](#busfromgetbus),
   instead of the installed bus. An explicit `{ bus: undefined }`, such as an iframe's empty slot, is
   refused; it never falls back to the installed bus.
-- **`replayRetained()`** sends this side's retained values of the listed channels, one per channel,
+- **`replay()`** sends this side's retained values of the listed channels, one per channel,
   with `retain: true`, so they overwrite the other side's. It doesn't request the other side's values.
 - **`close()`** closes the tap, frees the name and calls the cleanup that `listen` returned.
 
@@ -364,7 +364,10 @@ To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the b
 - **Unsubscribe when your component goes away.** Otherwise the listener outlives its micro frontend
   and keeps running.
 - **Emit a new object for every change.** A mutated object changes for every listener at once, and
-  Angular signals and React miss the change, because they compare references.
+  signals, stores and React state miss the change, because they compare references.
+- **Keep a received value out of deep reactive proxies**, such as Vue's `ref`. A write through the
+  proxy, such as `v-model`, mutates the object every listener and `peek` share, without an emit. Use
+  `shallowRef`, and emit a new object instead.
 - **Don't declare or assign `__NF_BUS__` on a page.** A `var __NF_BUS__` in a classic script makes it
   a plain variable that the next assignment replaces, which gives copies different buses. Install with
   `installGlobalBus`. Tests replace the bus as in [Testing](./recipes.md#testing).

@@ -39,7 +39,7 @@ connectTransport(broadcastChannelTransport(), ['cart:count'], { bus: found });
 getGlobalBus({});
 // @ts-expect-error there is no custom location any more
 installGlobalBus(createBus(), {});
-tabs?.replayRetained();
+tabs?.replay();
 tabs?.close();
 // @ts-expect-error connectTransport returns undefined when refused
 connectTransport(broadcastChannelTransport(), ['cart:count']).close();

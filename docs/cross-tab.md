@@ -56,7 +56,7 @@ bus.emit('cart:changed', { count: 3 });
 The transport is live only: a tab that opens gets nothing until the next emit in another tab. Read
 the initial state from the server or the URL.
 
-`connection?.replayRetained()` sends this tab's retained values of the listed channels to the other
+`connection?.replay()` sends this tab's retained values of the listed channels to the other
 tabs, overwriting theirs. It doesn't fetch theirs. Two tabs that emit on the same channel at the same
 moment can each end up with the other's value; nothing decides a winner.
 

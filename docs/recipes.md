@@ -6,38 +6,57 @@ The package ships no framework adapters: `on` returns `off`, which is the cleanu
 framework asks for. Copy the recipe you need into your app. Every snippet uses the installed bus
 through `bus`, so the host must have [installed it](./getting-started.md#install).
 
-## Angular
+## In a component
 
-For state, hand `off` to `DestroyRef`, and seed the signal with `peek` so the first render has the
-retained value:
+Hand `off` over where the component is destroyed, and follow the channel's kind (see
+[Commands](./getting-started.md#commands)):
 
-```ts
-import { DestroyRef, inject, signal, type Signal } from '@angular/core';
-import { bus, type ChannelName, type ChannelValue } from '@softarc/native-federation-communication';
+- **State**: seed with `peek`, so the first render has the retained value, then subscribe with replay
+  on. The replay also delivers a value emitted in between; getting the current value twice is
+  harmless.
+- **A command**: subscribe with `{ replay: false }`, so a remount, or React's StrictMode, doesn't
+  rerun an old command.
 
-export function channelSignal<K extends ChannelName>(
-  channel: K
-): Signal<ChannelValue<K> | undefined> {
-  const value = signal(bus.peek(channel));
-  inject(DestroyRef).onDestroy(bus.on(channel, next => value.set(next)));
-  return value.asReadonly();
+| Framework | State in a component                                                                                                                     |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Angular   | `const user = signal(bus.peek('shell:user'));` `inject(DestroyRef).onDestroy(bus.on('shell:user', u => user.set(u)));`                   |
+| Lit       | `this.#off = bus.on('shell:user', u => (this.user = u));` after `super.connectedCallback()`, and `this.#off()` in `disconnectedCallback` |
+| React     | [`useChannel`](#react)                                                                                                                   |
+| Solid     | `const user = from(set => bus.on('shell:user', u => set(() => u)));` (a setter calls a function value)                                   |
+| Svelte    | `const user = readable(bus.peek('shell:user'), set => bus.on('shell:user', set));` with runes, `fromStore(user)`                         |
+| Vanilla   | the [custom element](#custom-elements) recipe: one `AbortController` per connection                                                      |
+| Vue       | `const user = shallowRef(bus.peek('shell:user'));` `onScopeDispose(bus.on('shell:user', u => (user.value = u)));`                        |
+
+## Custom elements
+
+One `AbortController` per `connectedCallback` removes every subscription of the element at once:
+
+```js
+import { bus } from '@softarc/native-federation-communication';
+
+class CartBadge extends HTMLElement {
+  #connection;
+
+  connectedCallback() {
+    this.#connection = new AbortController();
+    const { signal } = this.#connection;
+    bus.on('cart:changed', ({ count }) => (this.textContent = String(count)), { signal });
+    bus.on('shell:theme', ({ name }) => this.setAttribute('theme', name), { signal });
+  }
+
+  disconnectedCallback() {
+    this.#connection?.abort();
+  }
 }
-```
 
-A command has nothing to render, so subscribe directly. In `provideAppInitializer` or a root service
-the listener lives as long as the app, and a `TestBed` reset removes it:
-
-```ts
-provideAppInitializer(() => {
-  const router = inject(Router);
-  inject(DestroyRef).onDestroy(bus.on('nav:navigate', ({ url }) => router.navigateByUrl(url)));
-});
+customElements.define('cart-badge', CartBadge);
 ```
 
 ## React
 
-For a command, `on` is the effect's cleanup:
-`useEffect(() => bus.on('ui:toast', ({ text }) => toast(text)), [])`. For state:
+`useSyncExternalStore` takes `on` as its `subscribe` and `peek` as its snapshot. For a command, `on`
+is the effect's cleanup:
+`useEffect(() => bus.on('ui:toast', ({ text }) => toast(text), { replay: false }), [])`. For state:
 
 ```js
 import { useCallback, useSyncExternalStore } from 'react';
@@ -112,30 +131,53 @@ const user = await firstValue('shell:user', { signal: AbortSignal.timeout(5000) 
 Await it only in the browser. Where the bus is inert, as on a server outside a request, `on` drops
 the listener, so the promise settles only when its `signal` aborts.
 
-## Custom elements
+## `values`
 
-One `AbortController` per `connectedCallback` removes every subscription of the element at once:
+For code that handles each value in turn, with an `await` in between: `values` is an async iterator
+over a channel. It subscribes when called and keeps every value until the loop takes it. When its
+`signal` aborts or the loop breaks, the loop ends quietly and drops the values it hasn't taken.
 
 ```js
 import { bus } from '@softarc/native-federation-communication';
 
-class CartBadge extends HTMLElement {
-  #connection;
-
-  connectedCallback() {
-    this.#connection = new AbortController();
-    const { signal } = this.#connection;
-    bus.on('cart:changed', ({ count }) => (this.textContent = String(count)), { signal });
-    bus.on('shell:theme', ({ name }) => this.setAttribute('theme', name), { signal });
-  }
-
-  disconnectedCallback() {
-    this.#connection?.abort();
-  }
+/**
+ * @template {import('@softarc/native-federation-communication').ChannelName} K
+ * @param {K} channel
+ * @param {{ signal?: AbortSignal, replay?: boolean }} [options]
+ * @returns {AsyncIterableIterator<import('@softarc/native-federation-communication').ChannelValue<K>>}
+ */
+export function values(channel, { signal, replay } = {}) {
+  const queue = [];
+  let wake = () => {};
+  const done = new AbortController();
+  const stop = signal ? AbortSignal.any([signal, done.signal]) : done.signal;
+  const end = () => (done.abort(), { done: true, value: undefined });
+  stop.addEventListener('abort', () => wake());
+  bus.on(channel, value => (queue.push(value), wake()), { signal: stop, replay });
+  return {
+    [Symbol.asyncIterator]() {
+      return this;
+    },
+    async next() {
+      while (!queue.length && !stop.aborted) await new Promise(resolve => (wake = resolve));
+      return stop.aborted ? end() : { done: false, value: queue.shift() };
+    },
+    async return() {
+      return end();
+    },
+  };
 }
-
-customElements.define('cart-badge', CartBadge);
 ```
+
+```js
+for await (const job of values('export:requested', { signal, replay: false })) await runExport(job);
+```
+
+- To render state, use [In a component](#in-a-component): a loop gets even the retained value a
+  microtask later, after the first render.
+- One loop per call. Unlike Node's `events.on`, aborting ends the loop instead of throwing.
+- Where the bus is inert, as on a server outside a request, the loop waits until its `signal` aborts,
+  as `firstValue` does.
 
 ## Server-side rendering
 
@@ -247,7 +289,7 @@ export function Shop() {
   const webView = useRef(null);
   const connection = useRef(null);
   const [transport] = useState(() =>
-    webViewTransport('webview:shop', webView, () => connection.current?.replayRetained())
+    webViewTransport('webview:shop', webView, () => connection.current?.replay())
   );
 
   useEffect(() => {
@@ -267,7 +309,7 @@ export function Shop() {
 
 - Values cross as JSON: functions and `undefined` fields are dropped, a `Date` arrives as a string.
 - A loaded or reloaded page starts empty, so the app sends its retained values with
-  `replayRetained()` when the page posts `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated
+  `replay()` when the page posts `{ type: 'webview-ready' }`. Not on `onLoadEnd`: a federated
   page often connects after its load event.
 - Give each `WebView` its own transport name, since a bus connects a name once.
 - The injected script ends with `true;`, as react-native-webview asks.
