@@ -17,14 +17,15 @@ Hand `off` over where the component is destroyed, and follow the channel's kind 
 - **A command**: subscribe with `{ replay: false }`, so a remount, or React's StrictMode, doesn't
   rerun an old command.
 
-| Framework    | State in a component                                                                                                   |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| Angular      | `const user = signal(bus.peek('shell:user'));` `inject(DestroyRef).onDestroy(bus.on('shell:user', u => user.set(u)));` |
-| Lit, vanilla | the [custom element](#custom-elements) recipe: one `AbortController` per connection                                    |
-| React        | [`useChannel`](#react)                                                                                                 |
-| Solid        | `const user = from(set => bus.on('shell:user', u => set(() => u)));` (a setter calls a function value)                 |
-| Svelte       | `const user = readable(bus.peek('shell:user'), set => bus.on('shell:user', set));` with runes, `fromStore(user)`       |
-| Vue          | `const user = shallowRef(bus.peek('shell:user'));` `onScopeDispose(bus.on('shell:user', u => (user.value = u)));`      |
+| Framework | State in a component                                                                                                                     |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Angular   | `const user = signal(bus.peek('shell:user'));` `inject(DestroyRef).onDestroy(bus.on('shell:user', u => user.set(u)));`                   |
+| Lit       | `this.#off = bus.on('shell:user', u => (this.user = u));` after `super.connectedCallback()`, and `this.#off()` in `disconnectedCallback` |
+| React     | [`useChannel`](#react)                                                                                                                   |
+| Solid     | `const user = from(set => bus.on('shell:user', u => set(() => u)));` (a setter calls a function value)                                   |
+| Svelte    | `const user = readable(bus.peek('shell:user'), set => bus.on('shell:user', set));` with runes, `fromStore(user)`                         |
+| Vanilla   | the [custom element](#custom-elements) recipe: one `AbortController` per connection                                                      |
+| Vue       | `const user = shallowRef(bus.peek('shell:user'));` `onScopeDispose(bus.on('shell:user', u => (user.value = u)));`                        |
 
 ## Custom elements
 
@@ -133,8 +134,8 @@ the listener, so the promise settles only when its `signal` aborts.
 ## `values`
 
 For code that handles each value in turn, with an `await` in between: `values` is an async iterator
-over a channel. It subscribes when called, keeps every value until the loop takes it, and ends the
-loop quietly when its `signal` aborts or the loop breaks.
+over a channel. It subscribes when called and keeps every value until the loop takes it. When its
+`signal` aborts or the loop breaks, the loop ends quietly and drops the values it hasn't taken.
 
 ```js
 import { bus } from '@softarc/native-federation-communication';
@@ -150,7 +151,7 @@ export function values(channel, { signal, replay } = {}) {
   let wake = () => {};
   const done = new AbortController();
   const stop = signal ? AbortSignal.any([signal, done.signal]) : done.signal;
-  const end = () => (done.abort(), wake(), { done: true, value: undefined });
+  const end = () => (done.abort(), { done: true, value: undefined });
   stop.addEventListener('abort', () => wake());
   bus.on(channel, value => (queue.push(value), wake()), { signal: stop, replay });
   return {
@@ -175,6 +176,8 @@ for await (const job of values('export:requested', { signal, replay: false })) a
 - To render state, use [In a component](#in-a-component): a loop gets even the retained value a
   microtask later, after the first render.
 - One loop per call. Unlike Node's `events.on`, aborting ends the loop instead of throwing.
+- Where the bus is inert, as on a server outside a request, the loop waits until its `signal` aborts,
+  as `firstValue` does.
 
 ## Server-side rendering
 

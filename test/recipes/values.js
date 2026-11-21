@@ -11,7 +11,7 @@ export function values(channel, { signal, replay } = {}) {
   let wake = () => {};
   const done = new AbortController();
   const stop = signal ? AbortSignal.any([signal, done.signal]) : done.signal;
-  const end = () => (done.abort(), wake(), { done: true, value: undefined });
+  const end = () => (done.abort(), { done: true, value: undefined });
   stop.addEventListener('abort', () => wake());
   bus.on(channel, value => (queue.push(value), wake()), { signal: stop, replay });
   return {

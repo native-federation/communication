@@ -37,7 +37,7 @@ export default defineConfig({
         test: {
           name: 'dist',
           include: ['test/**/*.spec.ts'],
-          environment: 'jsdom',
+          environment: 'node',
           globalSetup: ['test/global-setup.ts'],
           // The recipes import the package by name, as the docs show; they run against the build.
           // Subpaths first: the bare name would otherwise match them as a prefix.

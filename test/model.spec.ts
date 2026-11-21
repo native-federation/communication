@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import fc from 'fast-check';
 import type { Bus } from '../src/lib/domain/bus/bus.contract.js';
 import { createBus } from '../src/lib/bus/create-bus.js';

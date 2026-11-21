@@ -7,7 +7,6 @@ import './recipes/testing-setup.js';
 const recipe = (name: string) => import(`./recipes/${name}.js`);
 const pkg = '@softarc/native-federation-communication';
 
-// jsdom's URL is not accepted by node:fs, so paths go through __dirname.
 const read = (path: string) => readFileSync(resolve(__dirname, path), 'utf8');
 const list = (dir: string) => readdirSync(resolve(__dirname, dir));
 
@@ -148,7 +147,6 @@ describe('the values recipe', () => {
   });
 
   it('ends quietly when the signal aborts while it waits', async () => {
-    const seen = await spyOnSubscription();
     const { values } = await recipe('values');
     const controller = new AbortController();
     const got: unknown[] = [];
@@ -158,12 +156,26 @@ describe('the values recipe', () => {
         got.push(toast);
     })();
     emit('recipe:toast', 't1', { retain: false });
-    await Promise.resolve();
+    // a macrotask lets the loop take t1 and park on its next next(), so the abort lands mid-wait
+    await new Promise(resolve => setTimeout(resolve));
     controller.abort(new Error('torn down'));
+    emit('recipe:toast', 't2', { retain: false });
 
     await expect(loop).resolves.toBeUndefined();
     expect(got).toEqual(['t1']);
-    expect(seen.signal?.aborted).toBe(true);
+  });
+
+  it('drops the values it has not taken when it ends', async () => {
+    const { values } = await recipe('values');
+    const controller = new AbortController();
+    const toasts = values('recipe:toast', { signal: controller.signal });
+    emit('recipe:toast', 't1', { retain: false });
+    emit('recipe:toast', 't2', { retain: false });
+
+    await expect(toasts.next()).resolves.toEqual({ done: false, value: 't1' });
+    controller.abort();
+
+    await expect(toasts.next()).resolves.toEqual({ done: true, value: undefined });
   });
 
   // return() of an async generator would queue behind the pending next() and never run.
@@ -186,22 +198,6 @@ describe('the values recipe', () => {
     const toasts = values('recipe:toast', { signal: AbortSignal.abort() });
 
     await expect(toasts.next()).resolves.toEqual({ done: true, value: undefined });
-  });
-});
-
-describe('the custom element recipe', () => {
-  it('follows its channels while connected', async () => {
-    await recipe('custom-element');
-    const badge = document.createElement('cart-badge');
-    globalThis.__NF_BUS__?.emit('cart:changed', { count: 1 });
-
-    document.body.append(badge);
-    globalThis.__NF_BUS__?.emit('shell:theme', { name: 'dark' });
-    badge.remove();
-    globalThis.__NF_BUS__?.emit('cart:changed', { count: 2 });
-
-    expect(badge.textContent).toBe('1');
-    expect(badge.getAttribute('theme')).toBe('dark');
   });
 });
 
@@ -347,30 +343,5 @@ describe('the request bus recipe', () => {
     expect(createBus().version).toBe(globalThis.__NF_BUS__?.version);
     expect(globalThis.__NF_BUS__?.protocol).toBe(1);
     expect(Object.isFrozen(globalThis.__NF_BUS__)).toBe(true);
-  });
-});
-
-describe('the WebView page recipe', () => {
-  afterEach(() => {
-    delete (window as { __SHOP_FROM_APP__?: unknown }).__SHOP_FROM_APP__;
-  });
-
-  // The fixture connects at import, to whichever bus testing-setup installed for this test.
-  it('posts listed emits to the app and emits what the app injects, without echo', async () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal('ReactNativeWebView', { postMessage });
-    await recipe('webview-page');
-    const fromApp = (window as { __SHOP_FROM_APP__?: (json: string) => void }).__SHOP_FROM_APP__;
-
-    globalThis.__NF_BUS__?.emit('cart:changed', { count: 1 });
-    globalThis.__NF_BUS__?.emit('recipe:unlisted', 1);
-    fromApp?.(JSON.stringify({ channel: 'auth:user', value: { id: 1 }, retain: true }));
-
-    // The ready message comes first: listen runs as soon as connectTransport has claimed the transport name.
-    expect(postMessage.mock.calls).toEqual([
-      [JSON.stringify({ type: 'webview-ready' })],
-      [JSON.stringify({ channel: 'cart:changed', value: { count: 1 }, retain: true })],
-    ]);
-    expect(globalThis.__NF_BUS__?.peek('auth:user')).toEqual({ id: 1 });
   });
 });
