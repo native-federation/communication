@@ -83,6 +83,112 @@ describe('the firstValue recipe', () => {
   });
 });
 
+describe('the values recipe', () => {
+  const emit = (channel: string, value: unknown, options?: { retain?: boolean }) =>
+    globalThis.__NF_BUS__?.emit(channel, value, options);
+
+  // Wraps the stubbed bus so a test can see whether the recipe's listener was removed.
+  async function spyOnSubscription() {
+    const { createBus } = await import(`${pkg}/setup`);
+    const real = createBus();
+    const seen: { signal?: AbortSignal } = {};
+    vi.stubGlobal('__NF_BUS__', {
+      ...real,
+      on: (channel: string, fn: (value: unknown) => void, options?: { signal?: AbortSignal }) => (
+        (seen.signal = options?.signal),
+        real.on(channel, fn, options)
+      ),
+    });
+    return seen;
+  }
+
+  it('yields the retained value, then every later value in order', async () => {
+    const { values } = await recipe('values');
+    emit('recipe:toast', 't0');
+    const toasts = values('recipe:toast');
+
+    // a synchronous burst: buffer-all keeps t1 and t2, latest-only would drop them
+    emit('recipe:toast', 't1', { retain: false });
+    emit('recipe:toast', 't2', { retain: false });
+    emit('recipe:toast', 't3', { retain: false });
+
+    const got = [];
+    for await (const toast of toasts) if (got.push(toast) === 4) break;
+    expect(got).toEqual(['t0', 't1', 't2', 't3']);
+  });
+
+  // An async generator would subscribe only on the first next() and lose t1.
+  it('subscribes when called, not on the first next()', async () => {
+    const { values } = await recipe('values');
+    const toasts = values('recipe:toast', { replay: false });
+
+    emit('recipe:toast', 't1', { retain: false });
+
+    await expect(toasts.next()).resolves.toEqual({ done: false, value: 't1' });
+  });
+
+  it('skips the retained value with replay: false', async () => {
+    const { values } = await recipe('values');
+    emit('recipe:toast', 'old');
+    const toasts = values('recipe:toast', { replay: false });
+
+    emit('recipe:toast', 'new', { retain: false });
+
+    await expect(toasts.next()).resolves.toEqual({ done: false, value: 'new' });
+  });
+
+  it('unsubscribes on break', async () => {
+    const seen = await spyOnSubscription();
+    const { values } = await recipe('values');
+    emit('recipe:toast', 't0');
+
+    for await (const _ of values('recipe:toast')) break;
+
+    expect(seen.signal?.aborted).toBe(true);
+  });
+
+  it('ends quietly when the signal aborts while it waits', async () => {
+    const seen = await spyOnSubscription();
+    const { values } = await recipe('values');
+    const controller = new AbortController();
+    const got: unknown[] = [];
+
+    const loop = (async () => {
+      for await (const toast of values('recipe:toast', { signal: controller.signal }))
+        got.push(toast);
+    })();
+    emit('recipe:toast', 't1', { retain: false });
+    await Promise.resolve();
+    controller.abort(new Error('torn down'));
+
+    await expect(loop).resolves.toBeUndefined();
+    expect(got).toEqual(['t1']);
+    expect(seen.signal?.aborted).toBe(true);
+  });
+
+  // return() of an async generator would queue behind the pending next() and never run.
+  it('settles a pending next() and unsubscribes when return() is called', async () => {
+    const seen = await spyOnSubscription();
+    const { values } = await recipe('values');
+    const toasts = values('recipe:toast');
+
+    const pending = toasts.next();
+    await toasts.return();
+
+    await expect(pending).resolves.toEqual({ done: true, value: undefined });
+    expect(seen.signal?.aborted).toBe(true);
+  });
+
+  it('yields nothing for an aborted signal, even with a retained value', async () => {
+    const { values } = await recipe('values');
+    emit('recipe:toast', 't0');
+
+    const toasts = values('recipe:toast', { signal: AbortSignal.abort() });
+
+    await expect(toasts.next()).resolves.toEqual({ done: true, value: undefined });
+  });
+});
+
 describe('the custom element recipe', () => {
   it('follows its channels while connected', async () => {
     await recipe('custom-element');

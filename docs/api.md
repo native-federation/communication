@@ -364,7 +364,9 @@ To debug, run `__NF_BUS__.peek('cart:changed')` or `__NF_BUS__.version` in the b
 - **Unsubscribe when your component goes away.** Otherwise the listener outlives its micro frontend
   and keeps running.
 - **Emit a new object for every change.** A mutated object changes for every listener at once, and
-  Angular signals and React miss the change, because they compare references.
+  signals, stores and React state miss the change, because they compare references. For the same
+  reason, keep a received value out of deep reactive proxies such as Vue's `ref`, which write to the
+  object every listener holds: use `shallowRef`.
 - **Don't declare or assign `__NF_BUS__` on a page.** A `var __NF_BUS__` in a classic script makes it
   a plain variable that the next assignment replaces, which gives copies different buses. Install with
   `installGlobalBus`. Tests replace the bus as in [Testing](./recipes.md#testing).
