@@ -1,0 +1,120 @@
+// index.d.ts
+export { bus } from './lib/global/global-bus.js';
+export { connectTransport } from './lib/connect/connect.js';
+export * from './lib/domain/bus/index.js';
+export * from './lib/domain/connect/index.js';
+
+// install.d.ts
+export {};
+
+// lib/bus/arguments.d.ts
+export declare const noop: () => void;
+export declare const assertChannel: (channel: unknown) => void;
+export declare const assertListener: (listener: unknown) => void;
+export declare const assertTapName: (name: unknown) => void;
+export declare const assertTapListener: (listener: unknown) => void;
+export declare const assertTransportName: (name: unknown) => void;
+export declare const assertGetter: (getBus: unknown) => void;
+
+// lib/bus/create-bus.d.ts
+import type { Bus } from '../domain/bus/bus.contract.js';
+export declare const VERSION: string;
+export declare function createBus(): Bus;
+
+// lib/bus/safely.d.ts
+export declare function safely(task: () => void): void;
+
+// lib/connect/connect.d.ts
+import type { ChannelName } from '../domain/bus/bus.contract.js';
+import type { Connection, ConnectTransportOptions, Transport } from '../domain/connect/connect.contract.js';
+export declare function connectTransport(transport: Transport, channels: readonly ChannelName[], options?: ConnectTransportOptions): Connection | undefined;
+
+// lib/domain/bus/bus.contract.d.ts
+export interface Channels {
+}
+export type ChannelName = keyof Channels | (string & {});
+export type ChannelValue<K> = K extends keyof Channels ? Channels[K] : unknown;
+export type Listener<T> = (value: T) => void;
+export type Unsubscribe = () => void;
+export type EmitOptions = {
+    retain?: boolean;
+};
+export type OnOptions = {
+    signal?: AbortSignal;
+    replay?: boolean;
+};
+export type Envelope = {
+    channel: string;
+    value: unknown;
+    retain: boolean;
+};
+export type TapListener = (envelope: Envelope) => void;
+export type Tap = {
+    emit(channel: string, value: unknown, options?: EmitOptions): void;
+    replay(): void;
+    close(): void;
+};
+export type Bus = {
+    readonly protocol: number;
+    readonly version: string;
+    emit<K extends ChannelName>(channel: K, value: ChannelValue<K>, options?: EmitOptions): void;
+    on<K extends ChannelName>(channel: K, listener: Listener<ChannelValue<K>>, options?: OnOptions): Unsubscribe;
+    peek<K extends ChannelName>(channel: K): ChannelValue<K> | undefined;
+    tap?(name: string, listener: TapListener): Tap | undefined;
+};
+declare global {
+    interface NativeFederationBus {
+        readonly protocol: number;
+        readonly version: string;
+        emit(channel: string, value: unknown, options?: EmitOptions): void;
+        on(channel: string, listener: (value: unknown) => void, options?: OnOptions): () => void;
+        peek(channel: string): unknown;
+        tap?(name: string, listener: TapListener): Tap | undefined;
+    }
+    var __NF_BUS__: NativeFederationBus | undefined;
+}
+
+// lib/domain/bus/index.d.ts
+export type { Bus, ChannelName, Channels, ChannelValue, EmitOptions, Envelope, Listener, OnOptions, Tap, TapListener, Unsubscribe, } from './bus.contract.js';
+
+// lib/domain/connect/connect.contract.d.ts
+import type { Bus, Envelope, Unsubscribe } from '../bus/bus.contract.js';
+export type Transport = {
+    readonly name: string;
+    send(envelope: Envelope): void;
+    listen(receive: (envelope: Envelope) => void): Unsubscribe;
+};
+export type Connection = {
+    replay(): void;
+    close(): void;
+};
+export type ConnectTransportOptions = {
+    bus?: Bus | NativeFederationBus | undefined;
+};
+
+// lib/domain/connect/index.d.ts
+export type { Connection, ConnectTransportOptions, Transport } from './connect.contract.js';
+
+// lib/global/bus-from.d.ts
+import type { Bus } from '../domain/bus/bus.contract.js';
+export declare function busFrom(getBus: () => NativeFederationBus | undefined): Bus;
+
+// lib/global/global-bus.d.ts
+export declare const bus: import("../../index.js").Bus;
+
+// lib/global/slot.d.ts
+import type { Bus } from '../domain/bus/bus.contract.js';
+export declare const getGlobalBus: () => Bus | undefined;
+export declare function installGlobalBus(bus: Bus): Bus;
+
+// lib/transport/broadcast-channel-transport.d.ts
+import type { Transport } from '../domain/connect/connect.contract.js';
+export declare function broadcastChannelTransport(wire?: string): Transport;
+
+// setup.d.ts
+export { createBus } from './lib/bus/create-bus.js';
+export { busFrom } from './lib/global/bus-from.js';
+export { installGlobalBus } from './lib/global/slot.js';
+
+// transport/broadcast-channel.d.ts
+export { broadcastChannelTransport } from '../lib/transport/broadcast-channel-transport.js';

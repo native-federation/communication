@@ -72,5 +72,8 @@
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true
-  }
+  },
+  "ignoreDeps": [
+    "nfc-pinned"
+  ]
 }
