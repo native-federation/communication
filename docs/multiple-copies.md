@@ -78,6 +78,7 @@ Every 4.x release keeps these promises:
 - **Error and warning messages and `version` are for people, not code.** They can change in any
   release.
 
-Copies from the 4.0.0-next.x prereleases install a bus differently and have no `tap`; the
+Copies from 4.0.0-next.0 and next.1 install a bus on their first call and have no `tap`, and next.2
+delivers an emit to taps opened during it. The
 [4.0.0 release notes](https://github.com/native-federation/communication/releases/tag/v4.0.0) explain
-how to upgrade from them.
+how to upgrade from the prereleases.
