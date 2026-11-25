@@ -1,5 +1,5 @@
 {
-  "version": "4.0.0-next.2",
+  "version": "4.0.0",
   "name": "@softarc/native-federation-communication",
   "description": "A tiny, page-wide channel bus for micro frontends that are built and deployed apart",
   "author": "Aukevanoost",

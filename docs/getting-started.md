@@ -47,7 +47,7 @@ the bus:
 
 ```html
 <script
-  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0-next.2/install.js"
+  src="https://unpkg.com/@softarc/native-federation-communication@4.0.0/install.js"
   integrity="sha384-HASH"
   crossorigin="anonymous"
 ></script>
@@ -55,7 +55,7 @@ the bus:
 
 - Replace `HASH` with the output of `openssl dgst -sha384 -binary install.js | openssl base64 -A`.
   Serving the file from your own host is better still.
-- Keep the exact version: a range such as `@4` never matches a prerelease.
+- Keep the exact version: the hash only matches one file.
 - Scripts without a bundler use the bus as `globalThis.__NF_BUS__`; it has the same methods as `bus`.
   Code that must keep running when the script failed to load calls `globalThis.__NF_BUS__?.on(…)`.
 
