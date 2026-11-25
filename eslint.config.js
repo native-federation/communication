@@ -1,7 +1,6 @@
 const typescript = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
 const globals = require('globals');
-const prettier = require('eslint-plugin-prettier');
 
 // The barrels define the published API. Internal code imports concrete modules so the
 // dependency graph stays visible and free of accidental cycles.
@@ -32,7 +31,6 @@ module.exports = [
     },
     plugins: {
       '@typescript-eslint': typescript,
-      prettier: prettier,
     },
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',
