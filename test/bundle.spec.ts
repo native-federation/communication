@@ -32,7 +32,6 @@ type Copy = {
   ) => Connection | undefined;
   createBus: () => Bus;
   busFrom: (getBus: () => NativeFederationBus | undefined) => Bus;
-  getGlobalBus: () => Bus | undefined;
   installGlobalBus: (bus: Bus) => Bus;
 };
 
@@ -100,7 +99,6 @@ describe('the published bundles', () => {
         import: `./${FESM}.mjs`,
         default: `./${FESM}.mjs`,
       },
-      './domain': entry('domain'),
       './setup': entry('setup'),
       './install': entry('install'),
       './transport/broadcast-channel': {
@@ -141,12 +139,12 @@ describe('the published bundles', () => {
     it('installs a bus that every copy then uses', async () => {
       await install();
       const installed = globalThis.__NF_BUS__;
-      const { bus, getGlobalBus } = await loadCopy();
+      const { bus } = await loadCopy();
 
       bus.emit('a', 1);
 
       expect(installed?.peek('a')).toBe(1);
-      expect(getGlobalBus()).toBe(installed);
+      expect(bus.version).toBe(installed?.version);
     });
 
     it('keeps the first bus when a second copy runs its install', async () => {

@@ -28,7 +28,7 @@ export type Bus = {
     options?: OnOptions
   ): Unsubscribe;
   peek<K extends ChannelName>(channel: K): ChannelValue<K> | undefined;
-  // Optional: the page bus may come from an older copy without it.
+  // Optional for good: members added after protocol 1 are optional, and the inert bus has none.
   tap?(name: string, listener: TapListener): Tap | undefined;
 };
 

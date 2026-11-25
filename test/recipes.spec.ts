@@ -17,7 +17,7 @@ describe('the docs', () => {
     expect(read('../docs/recipes.md')).toContain(read(`recipes/${file}`).trim());
   });
 
-  // unpkg ranges such as @4 never match a prerelease, so the snippets pin the exact version.
+  // An integrity hash matches one file only, so the snippets pin the exact version.
   it('pin the version in package.json', () => {
     const { version } = JSON.parse(read('../package.json')) as { version: string };
     const pinned = docs.flatMap(doc =>

@@ -16,8 +16,7 @@ The library is deliberately small. The object on `globalThis.__NF_BUS__` is the 
 
 ```
 src/index.ts                         '.': bus, connectTransport and the types
-src/domain.ts                        './domain': the types only
-src/setup.ts                         './setup': createBus, busFrom, getGlobalBus and installGlobalBus
+src/setup.ts                         './setup': createBus, busFrom and installGlobalBus
 src/install.ts                       './install' and './install.js': installs a bus, nothing else
 src/transport/broadcast-channel.ts   './transport/broadcast-channel': broadcastChannelTransport
 src/lib/domain/                      the contracts (*.contract.ts) and their barrels, per area
@@ -66,6 +65,15 @@ feat: add new feature
 fix: resolve issue
 docs: update readme
 ```
+
+## Releasing
+
+1. Set `version` in `package.json` and the unpkg pin in `docs/getting-started.md` (a test keeps them
+   equal), merge to `main`, then push the tag `v<version>`.
+2. Approve the staged package on npmjs.com after comparing its shasum with the workflow summary.
+3. Check `npm view @softarc/native-federation-communication dist-tags`: a version without `-` is
+   `latest`, a prerelease is `next`.
+4. Publish the GitHub Release notes by hand: breaking changes first, then fixes.
 
 ## Need Help?
 

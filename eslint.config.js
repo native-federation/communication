@@ -1,15 +1,14 @@
 const typescript = require('@typescript-eslint/eslint-plugin');
 const tsParser = require('@typescript-eslint/parser');
 const globals = require('globals');
-const prettier = require('eslint-plugin-prettier');
 
 // The barrels define the published API. Internal code imports concrete modules so the
 // dependency graph stays visible and free of accidental cycles.
 const ENTRY_BARREL = {
-  group: ['**/index', '**/index.js', '**/index.ts', '**/domain.js', '**/domain.ts'],
-  message: 'The barrels (index.ts, domain.ts) are for package consumers only. Import the concrete module instead.',
+  group: ['**/index', '**/index.js', '**/index.ts'],
+  message: 'The barrel (index.ts) is for package consumers only. Import the concrete module instead.',
 };
-const BARRELS = ['src/index.ts', 'src/domain.ts'];
+const BARRELS = ['src/index.ts'];
 
 module.exports = [
   {
@@ -32,7 +31,6 @@ module.exports = [
     },
     plugins: {
       '@typescript-eslint': typescript,
-      prettier: prettier,
     },
     rules: {
       '@typescript-eslint/explicit-function-return-type': 'off',

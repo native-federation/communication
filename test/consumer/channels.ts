@@ -1,11 +1,6 @@
 // Type-checked against the built d.ts, imported by package name like an app would.
-import {
-  bus,
-  type Bus,
-  type ChannelValue as MainChannelValue,
-} from '@softarc/native-federation-communication';
+import { bus, type Bus, type ChannelValue } from '@softarc/native-federation-communication';
 import { createBus } from '@softarc/native-federation-communication/setup';
-import type { ChannelValue } from '@softarc/native-federation-communication/domain';
 
 declare module '@softarc/native-federation-communication' {
   interface Channels {
@@ -23,12 +18,9 @@ export const count: number | undefined = createBus().peek('cart:count');
 // @ts-expect-error peek includes undefined: nothing may have been retained yet
 export const always: number = bus.peek('cart:count');
 
-export const viaMain: MainChannelValue<'cart:count'> = 1;
+export const viaMain: ChannelValue<'cart:count'> = 1;
 // @ts-expect-error ChannelValue from the main entry sees the augmentation
-export const wrongViaMain: MainChannelValue<'cart:count'> = 'one';
-export const viaDomain: ChannelValue<'cart:count'> = 1;
-// @ts-expect-error ChannelValue from ./domain sees the augmentation made on the main entry
-export const wrongViaDomain: ChannelValue<'cart:count'> = 'one';
+export const wrongViaMain: ChannelValue<'cart:count'> = 'one';
 
 // @ts-expect-error an undeclared (or misspelt) channel is unknown
 export const typo: number | undefined = bus.peek('cart:cuont');

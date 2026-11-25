@@ -59,15 +59,16 @@ function emitter({ retained, subs, taps, enqueue }: State, source?: TapListener)
     const retain = enabled(options?.retain);
     if (retain) retained.set(channel, value);
     else retained.delete(channel);
-    // `snapshot` is who listened at emit time; `live` drops whoever unsubscribed since.
+    // The snapshots are who listened at emit time; the live checks drop whoever left since.
     const live = subs.get(channel) ?? new Set<Sub>();
     const snapshot = [...live];
+    const tapped = [...taps];
     enqueue(() => {
       snapshot.forEach(sub => {
         if (live.has(sub)) safely(() => sub.fn(value));
       });
-      taps.forEach(tap => {
-        if (tap !== source) safely(() => tap({ channel, value, retain }));
+      tapped.forEach(([name, tap]) => {
+        if (tap !== source && taps.get(name) === tap) safely(() => tap({ channel, value, retain }));
       });
     });
   };
@@ -118,9 +119,11 @@ function opener(state: State) {
         if (live()) emit(channel, value, options);
       },
       replay: () => {
-        const values = live() ? [...retained] : [];
+        const values = [...retained];
         hold(() =>
-          values.forEach(([channel, value]) => safely(() => own({ channel, value, retain: true })))
+          values.forEach(([channel, value]) => {
+            if (live()) safely(() => own({ channel, value, retain: true }));
+          })
         );
       },
       close: () => {

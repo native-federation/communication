@@ -29,6 +29,9 @@ The declarations type `bus` and every bus from `createBus()` and `busFrom()`, al
 `globalThis.__NF_BUS__` stays untyped (`NativeFederationBus`), because every copy of the package
 declares it and the declarations must agree. Write code against `bus` or `Bus`, not the global.
 
+The types are tested with TypeScript 6.0 and use `AbortSignal`, so the project needs the `DOM` lib or
+`@types/node`.
+
 ## In JavaScript
 
 Keep the same `channels.d.ts` and start each `.js` file with `// @ts-check` (or set `checkJs` in
@@ -40,9 +43,6 @@ channel's value type as `import('@softarc/native-federation-communication').Chan
 - **A misspelt name is just another channel.** `bus.on('cart:chnaged', …)` compiles, with an
   `unknown` value, and never receives anything. Export the names as constants from your contracts
   module, or use [strict channel names](#strict-channel-names).
-- **Augment the package name, never a subpath such as `/domain`.** `/domain` is for contracts
-  packages that need the types without runtime code. It is a second module, and augmenting both in
-  one app can drop declarations without an error.
 - **An undeclared channel is `unknown`**, not `any`: narrow the value before you use it, or cast it
   where you can see it: `bus.peek('legacy:cart') as Cart | undefined`.
 - **A union of names takes a union of values.** With `name: 'cart:changed' | 'ui:toast'`,
@@ -118,6 +118,8 @@ export const strictBus = bus as StrictBus;
 
 Every producer and consumer must see the declaration. Either put it in a types-only contracts
 package that each remote installs, or copy the `.d.ts` into each repo, which is simpler but drifts.
+A contracts package that needs the package's types imports them with `import type`, which leaves no
+runtime import behind.
 If one build sees two different types for one channel, TypeScript reports an error, so drift between
 packages shows up at build time.
 

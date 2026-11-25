@@ -372,6 +372,18 @@ describe('connect', () => {
       expect(transport.sent).toEqual([]);
     });
 
+    // A connection opened during delivery brings itself up to date with replay(); were the in-flight
+    // emit also sent, the other side would get it twice.
+    it('sends a value once when connected and replayed by a listener of its emit', () => {
+      const bus = createBus();
+      const transport = endpoint();
+      bus.on('a', () => connectTransport(transport, ['a'], { bus })?.replay(), { replay: false });
+
+      bus.emit('a', 1);
+
+      expect(transport.sent).toEqual([{ channel: 'a', value: 1, retain: true }]);
+    });
+
     it('sends in listener-delivery order, re-entrant emits included', () => {
       const bus = createBus();
       const transport = endpoint();

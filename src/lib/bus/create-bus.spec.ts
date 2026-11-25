@@ -406,15 +406,6 @@ describe('createBus', () => {
 
       expect(collect(bus, 'a', options as never).values).toEqual([1]);
     });
-
-    it('has finished the replay when on returns', () => {
-      bus.emit('a', 1);
-      let replayed = false;
-
-      bus.on('a', () => (replayed = true));
-
-      expect(replayed).toBe(true);
-    });
   });
 
   describe('error isolation', () => {

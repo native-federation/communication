@@ -216,7 +216,9 @@ describe('bus.tap', () => {
       expect(seen).toEqual([]);
     });
 
-    it('reads the taps live, so a tap opened by a listener sees the emit being delivered', () => {
+    // Like listeners: the taps open when emit was called. A tap opened during delivery that replays
+    // would otherwise see the in-flight value twice.
+    it('does not deliver the emit being delivered to a tap opened by its listener', () => {
       const seen: Seen[] = [];
       bus.on('a', () => {
         openTap(bus, 'late', ({ channel, value, retain }) => seen.push([channel, value, retain]));
@@ -224,7 +226,49 @@ describe('bus.tap', () => {
 
       bus.emit('a', 1);
 
+      expect(seen).toEqual([]);
+    });
+
+    it('does not deliver an emit queued before a tap opened', () => {
+      const seen: Seen[] = [];
+      bus.on('a', () => {
+        bus.emit('b', 2);
+        openTap(bus, 'late', ({ channel, value, retain }) => seen.push([channel, value, retain]));
+      });
+
+      bus.emit('a', 1);
+      bus.emit('c', 3);
+
+      expect(seen).toEqual([['c', 3, true]]);
+    });
+
+    it('gives a tap opened by a listener and then replayed each retained value once', () => {
+      const seen: Seen[] = [];
+      bus.on('a', () => {
+        const late = openTap(bus, 'late', ({ channel, value, retain }) =>
+          seen.push([channel, value, retain])
+        );
+        late.replay();
+      });
+
+      bus.emit('a', 1);
+
       expect(seen).toEqual([['a', 1, true]]);
+    });
+
+    it('skips a tap closed and reopened under the same name before its task runs', () => {
+      const { seen, tap } = record(bus, 't');
+      const reopened: Seen[] = [];
+      bus.on('a', () => {
+        bus.emit('b', 2);
+        tap.close();
+        openTap(bus, 't', ({ channel, value, retain }) => reopened.push([channel, value, retain]));
+      });
+
+      bus.emit('a', 1);
+
+      expect(seen).toEqual([]);
+      expect(reopened).toEqual([]);
     });
 
     it('still delivers to listeners when a tap is open', () => {
@@ -438,6 +482,20 @@ describe('bus.tap', () => {
       tap.replay();
 
       expect(log).toEqual(['tap a:1', 'tap b:2', 'listener c:from replay', 'tap c:from replay']);
+    });
+
+    it('stops when the tap listener closes its own tap during the replay', () => {
+      bus.emit('a', 1);
+      bus.emit('b', 2);
+      const seen: string[] = [];
+      const tap: Tap = openTap(bus, 't', ({ channel }) => {
+        seen.push(channel);
+        tap.close();
+      });
+
+      tap.replay();
+
+      expect(seen).toEqual(['a']);
     });
 
     it('reports a throwing tap listener and continues with the next channel', () => {

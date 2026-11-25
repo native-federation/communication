@@ -55,7 +55,7 @@ parent to a child component in attributes.
 | [API](https://github.com/native-federation/communication/blob/main/docs/api.md)                                             | Look up every export, option, error and warning           |
 | [Typing](https://github.com/native-federation/communication/blob/main/docs/typing.md)                                       | Check channel values in TypeScript and JavaScript         |
 | [Recipes](https://github.com/native-federation/communication/blob/main/docs/recipes.md)                                     | Use it from any framework, plain JS, RxJS, SSR and tests  |
-| [Multiple copies](https://github.com/native-federation/communication/blob/main/docs/multiple-copies.md)                     | Mix versions on one page, run outside a browser, upgrade  |
+| [Multiple copies](https://github.com/native-federation/communication/blob/main/docs/multiple-copies.md)                     | Mix versions on one page, run outside a browser, semver   |
 | [Cross-tab](https://github.com/native-federation/communication/blob/main/docs/cross-tab.md)                                 | Share channels between tabs of the same origin            |
 | [Migrating from the registry](https://github.com/native-federation/communication/blob/main/docs/migrating-from-registry.md) | Replace the orchestrator's `__NF_REGISTRY__` with the bus |
 

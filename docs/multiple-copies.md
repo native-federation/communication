@@ -61,24 +61,24 @@ Node, Deno, Bun, workers and iframes each have their own global object, so each 
   startup.
 - **A server that renders for many users**: never import `/install` in server code, or every request
   shares one bus. Install the request-scoped bus from [the SSR recipe](./recipes.md#server-side-rendering)
-  at boot. Without it, the bus on the server is inert, provided every copy is 4.0.0-next.2 or newer.
-- **Copies from 4.0.0-next.0 and next.1** install a bus on their first call wherever
-  `window === globalThis`, as on a server with a DOM shim or on Deno 1.x. On a server that one bus
-  serves all requests, so install the SSR recipe's bus at boot: it takes the slot first.
+  at boot. Without it, the bus on the server is inert.
 
-## Upgrading from 4.0.0-next.x
+## Compatibility
 
-Copies from 4.0.0-next.0 and next.1 install a bus on their first call. From 4.0.0-next.2 on, a bus is
-installed only by `/install`, `install.js` or `installGlobalBus`. So:
+Every 4.x release keeps these promises:
 
-1. **Upgrade the host first**, and add the `/install` import (or `install.js`) there.
-2. **Then upgrade the remotes**, in any order.
+- **Any 4.x copy works with a bus that any other 4.x copy installed**, older or newer. The bus
+  behaves as the copy that installed it does, so code that needs behaviour added in a later 4.x
+  checks [`protocol`](#the-protocol) first. `protocol` is `1` in 4.0.0.
+- **The interfaces you implement, `Transport` and `TapListener`, only gain optional members.**
+- **The cross-tab wire name and the envelope stay as they are**, and transports carry only
+  `channel`, `value` and `retain`.
+- **A refused `connectTransport` returns `undefined` and warns, and a taken `tap` name returns
+  `undefined`.** Neither starts to throw.
+- **Error and warning messages and `version` are for people, not code.** They can change in any
+  release.
 
-What goes wrong in the other order:
-
-- **A next.2 remote next to a next.x host** loses every subscription it makes before the host's first
-  bus call: until the host's copy installs its bus, the remote's `bus` is inert.
-- **A host whose code resolves to a shared next.2 copy**, but without the `/install` import, installs
-  nothing, and every copy on the page is inert.
-- **A bus installed by a next.x copy has no `tap`**, so `connectTransport` is refused with
-  `the installed bus has no tap (an older copy installed it)`.
+Copies from 4.0.0-next.0 and next.1 install a bus on their first call and have no `tap`, and next.2
+delivers an emit to taps opened during it. The
+[4.0.0 release notes](https://github.com/native-federation/communication/releases/tag/v4.0.0) explain
+how to upgrade from the prereleases.
