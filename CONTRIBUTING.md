@@ -74,8 +74,6 @@ docs: update readme
 3. Check `npm view @softarc/native-federation-communication dist-tags`: a version without `-` is
    `latest`, a prerelease is `next`.
 4. Publish the GitHub Release notes by hand: breaking changes first, then fixes.
-5. After 4.0.0, re-pin `nfc-pinned` in `package.json` to `4.0.0` and keep it there for all of 4.x: it
-   is the oldest copy that 4.x promises to work with (see `test/published-copy.spec.ts`).
 
 ## Need Help?
 
