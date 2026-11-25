@@ -1,6 +1,7 @@
 {
   "version": "4.0.0-next.2",
   "name": "@softarc/native-federation-communication",
+  "description": "A tiny, page-wide channel bus for micro frontends that are built and deployed apart",
   "author": "Aukevanoost",
   "keywords": [
     "native-federation",
@@ -19,10 +20,11 @@
     "type": "git",
     "url": "https://github.com/native-federation/communication.git"
   },
-  "license": "MIT",
-  "engines": {
-    "node": ">=20.6.0"
+  "homepage": "https://github.com/native-federation/communication#readme",
+  "bugs": {
+    "url": "https://github.com/native-federation/communication/issues"
   },
+  "license": "MIT",
   "devEngines": {
     "runtime": {
       "name": "node",
