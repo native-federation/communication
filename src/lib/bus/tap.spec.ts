@@ -484,6 +484,20 @@ describe('bus.tap', () => {
       expect(log).toEqual(['tap a:1', 'tap b:2', 'listener c:from replay', 'tap c:from replay']);
     });
 
+    it('stops when the tap listener closes its own tap during the replay', () => {
+      bus.emit('a', 1);
+      bus.emit('b', 2);
+      const seen: string[] = [];
+      const tap: Tap = openTap(bus, 't', ({ channel }) => {
+        seen.push(channel);
+        tap.close();
+      });
+
+      tap.replay();
+
+      expect(seen).toEqual(['a']);
+    });
+
     it('reports a throwing tap listener and continues with the next channel', () => {
       const reportError = stubReportError();
       const error = new Error('boom');

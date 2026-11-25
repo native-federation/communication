@@ -119,9 +119,11 @@ function opener(state: State) {
         if (live()) emit(channel, value, options);
       },
       replay: () => {
-        const values = live() ? [...retained] : [];
+        const values = [...retained];
         hold(() =>
-          values.forEach(([channel, value]) => safely(() => own({ channel, value, retain: true })))
+          values.forEach(([channel, value]) => {
+            if (live()) safely(() => own({ channel, value, retain: true }));
+          })
         );
       },
       close: () => {
