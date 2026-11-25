@@ -150,8 +150,8 @@ bus.emit('cart:changed', { count: 3 }); // logs cart:changed { count: 3 } true
 tap?.close();
 ```
 
-- **Call it as `bus.tap?.(…)`.** `tap` is optional on the type: a bus installed by 4.0.0-next.0 or
-  next.1 has no `tap`.
+- **Call it as `bus.tap?.(…)`.** `tap` is optional on the type, and stays optional: members added
+  after protocol 1 are optional, and an [inert bus](#without-an-installed-bus) has no `tap`.
 - **Names are unique per bus.** `tap` returns `undefined` while a tap or connection with that `name`
   is open on this bus. It throws a `TypeError` when `name` is not a string
   (`A tap name must be a string, got …`) or `listener` is not a function
@@ -213,13 +213,13 @@ and the cause:
 [native-federation-communication] Transport 'broadcast:native-federation-communication/1' is not connected: no bus is installed.
 ```
 
-| Cause                                                         | What to do                                                                             |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `no bus is installed`                                         | Install the bus in the host before connecting                                          |
-| `the installed bus has no tap (an older copy installed it)`   | Upgrade the host first: see [Upgrading](./multiple-copies.md#upgrading-from-400-nextx) |
-| `options.bus is undefined`                                    | Pass a bus, or wait until the bus you meant to pass exists                             |
-| `options.bus has no tap`                                      | Pass a bus from `createBus()`, or a `busFrom` bus whose getter returns one with `tap`  |
-| `the name is already taken on this bus by a tap or transport` | Close the other connection, or give this transport its own `name`                      |
+| Cause                                                         | What to do                                                                            |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `no bus is installed`                                         | Install the bus in the host before connecting                                         |
+| `the installed bus has no tap (an older copy installed it)`   | Upgrade the host's copy to 4.0.0 or later                                             |
+| `options.bus is undefined`                                    | Pass a bus, or wait until the bus you meant to pass exists                            |
+| `options.bus has no tap`                                      | Pass a bus from `createBus()`, or a `busFrom` bus whose getter returns one with `tap` |
+| `the name is already taken on this bus by a tap or transport` | Close the other connection, or give this transport its own `name`                     |
 
 ### Transports
 

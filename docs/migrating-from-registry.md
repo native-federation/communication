@@ -40,7 +40,7 @@ a stream with the same name become one channel.
 
 A script that emits on the bus without importing the package, such as the orchestrator's
 `orch.init-ready` announcement, needs `install.js` to run first: put the `install.js` tag before
-that script.
+that script. An `/install` import in the host's code runs too late for it.
 
 `register(name, () => fn)` published `fn`, because `register` called functions. `emit` doesn't:
 ported literally, `emit(name, () => fn)` publishes the wrapper. Only TypeScript, on a
@@ -72,6 +72,10 @@ Drop the type arguments. Where you used `Events['x']` as a type, use `ChannelVal
 
 - **No copy.** The registry cloned values, which dropped functions. Listeners on the bus get the
   producer's object, so emit a new object instead of mutating it.
+- **`on` keeps firing.** `onReady` called back once; `on` calls back for every value. For the first
+  value only, use [`firstValue`](./recipes.md#firstvalue) or abort a `signal` in the first call.
+- **`update` gets the producer's object.** The registry passed `update`'s function a clone;
+  `bus.peek` doesn't. Return a new object from the function, never a mutated `peek` result.
 - **Synchronous replay.** The retained value arrives before `on` returns.
 - **Isolated listeners.** A throwing listener no longer stops the others or the producer.
 

@@ -29,6 +29,9 @@ The declarations type `bus` and every bus from `createBus()` and `busFrom()`, al
 `globalThis.__NF_BUS__` stays untyped (`NativeFederationBus`), because every copy of the package
 declares it and the declarations must agree. Write code against `bus` or `Bus`, not the global.
 
+The types are tested with TypeScript 6.0 and use `AbortSignal`, so the project needs the `DOM` lib or
+`@types/node`.
+
 ## In JavaScript
 
 Keep the same `channels.d.ts` and start each `.js` file with `// @ts-check` (or set `checkJs` in
