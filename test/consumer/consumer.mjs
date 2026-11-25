@@ -6,7 +6,6 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import * as main from '@softarc/native-federation-communication';
 import * as broadcastChannel from '@softarc/native-federation-communication/transport/broadcast-channel';
-import * as domain from '@softarc/native-federation-communication/domain';
 import * as setup from '@softarc/native-federation-communication/setup';
 
 const NAME = '@softarc/native-federation-communication';
@@ -23,7 +22,6 @@ assert.deepEqual(
   [...new Set(typesFiles)],
   [
     './types/index.d.ts',
-    './types/domain.d.ts',
     './types/setup.d.ts',
     './types/install.d.ts',
     './types/transport/broadcast-channel.d.ts',
@@ -34,10 +32,9 @@ for (const file of typesFiles) {
 }
 
 assert.deepEqual(Object.keys(main).sort(), ['bus', 'connectTransport']);
-assert.deepEqual(Object.keys(setup).sort(), ['busFrom', 'createBus', 'getGlobalBus', 'installGlobalBus']);
+assert.deepEqual(Object.keys(setup).sort(), ['busFrom', 'createBus', 'installGlobalBus']);
 assert.deepEqual(Object.keys(broadcastChannel), ['broadcastChannelTransport']);
-// ./domain holds types only, so at runtime it is an empty module
-assert.deepEqual(Object.keys(domain), []);
+assert.throws(() => import.meta.resolve(`${NAME}/domain`), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
 
 const own = createBus();
 const received = [];
@@ -68,7 +65,6 @@ const install = await import(`${NAME}/install`);
 assert.deepEqual(Object.keys(install), []);
 const installed = globalThis.__NF_BUS__;
 assert.equal(installed?.protocol, 1);
-assert.equal(setup.getGlobalBus(), installed);
 bus.emit('cart:count', 3);
 assert.equal(installed.peek('cart:count'), 3);
 

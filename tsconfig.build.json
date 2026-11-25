@@ -11,7 +11,6 @@
   },
   "include": [
     "src/index.ts",
-    "src/domain.ts",
     "src/setup.ts",
     "src/install.ts",
     "src/transport/broadcast-channel.ts",

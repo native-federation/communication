@@ -48,15 +48,6 @@ function generateBundles() {
       sourcemap: true,
     },
 
-    [`${PACKAGE_NAME}/domain`]: {
-      ...baseConfig,
-      format: 'esm',
-      entryPoints: ['src/domain.ts'],
-      outfile: path.join(OUTPUT_PATHS.fesm2022, 'native-federation-communication-domain.mjs'),
-      minify: false,
-      sourcemap: true,
-    },
-
     [`${PACKAGE_NAME}/setup`]: {
       ...baseConfig,
       format: 'esm',
@@ -103,11 +94,6 @@ function generatePackageExports() {
         types: './types/index.d.ts',
         import: `./fesm2022/${PACKAGE_NAME}.mjs`,
         default: `./fesm2022/${PACKAGE_NAME}.mjs`,
-      },
-      './domain': {
-        types: './types/domain.d.ts',
-        import: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
-        default: `./fesm2022/${PACKAGE_NAME}-domain.mjs`,
       },
       './setup': {
         types: './types/setup.d.ts',

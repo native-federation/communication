@@ -16,8 +16,7 @@ The library is deliberately small. The object on `globalThis.__NF_BUS__` is the 
 
 ```
 src/index.ts                         '.': bus, connectTransport and the types
-src/domain.ts                        './domain': the types only
-src/setup.ts                         './setup': createBus, busFrom, getGlobalBus and installGlobalBus
+src/setup.ts                         './setup': createBus, busFrom and installGlobalBus
 src/install.ts                       './install' and './install.js': installs a bus, nothing else
 src/transport/broadcast-channel.ts   './transport/broadcast-channel': broadcastChannelTransport
 src/lib/domain/                      the contracts (*.contract.ts) and their barrels, per area

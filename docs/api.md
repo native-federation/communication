@@ -23,14 +23,13 @@ The complete reference. For a first read, start with [Getting started](./getting
 
 Every subpath is under `@softarc/native-federation-communication`:
 
-| Import                         | Exports                                                    | Who imports it                                           |
-| ------------------------------ | ---------------------------------------------------------- | -------------------------------------------------------- |
-| the package                    | `bus`, `connectTransport`, every type                      | The host and every remote                                |
-| `/install`                     | nothing: importing it installs a bus                       | The host, once                                           |
-| `/setup`                       | `createBus`, `busFrom`, `getGlobalBus`, `installGlobalBus` | [Custom installs](#setup-functions), servers, tests      |
-| `/domain`                      | every type, and the `__NF_BUS__` global                    | Contracts packages: types without runtime code           |
-| `/transport/broadcast-channel` | `broadcastChannelTransport`                                | [Cross-tab](./cross-tab.md)                              |
-| `/install.js`                  | a classic script that installs a bus                       | The [script tag](./getting-started.md#with-a-script-tag) |
+| Import                         | Exports                                    | Who imports it                                           |
+| ------------------------------ | ------------------------------------------ | -------------------------------------------------------- |
+| the package                    | `bus`, `connectTransport`, every type      | The host and every remote                                |
+| `/install`                     | nothing: importing it installs a bus       | The host, once                                           |
+| `/setup`                       | `createBus`, `busFrom`, `installGlobalBus` | [Custom installs](#setup-functions), servers, tests      |
+| `/transport/broadcast-channel` | `broadcastChannelTransport`                | [Cross-tab](./cross-tab.md)                              |
+| `/install.js`                  | a classic script that installs a bus       | The [script tag](./getting-started.md#with-a-script-tag) |
 
 ```js
 import { bus, connectTransport } from '@softarc/native-federation-communication';
@@ -39,9 +38,6 @@ import { bus, connectTransport } from '@softarc/native-federation-communication'
 `bus` serves the installed bus: it reads `globalThis.__NF_BUS__` on every call, so every copy of the
 package uses the same bus, whichever copy installed it. With nothing installed, `bus` is
 [inert](#without-an-installed-bus).
-
-`/domain` exports the same types as the package itself. Augment `Channels` on the package name,
-never on `/domain`: see [Typing](./typing.md#what-the-types-dont-catch).
 
 ## The bus
 
@@ -259,21 +255,19 @@ A received envelope's `retain` follows the [option rules](#the-bus): a missing `
 
 ## Setup functions
 
-`/setup` exports four functions for installing or reaching a bus yourself: servers, tests, iframes, DI
+`/setup` exports three functions for installing or reaching a bus yourself: servers, tests, iframes, DI
 containers.
 
 ```js
 import {
   busFrom,
   createBus,
-  getGlobalBus,
   installGlobalBus,
 } from '@softarc/native-federation-communication/setup';
 ```
 
 - **`createBus()`** returns a new, empty bus that is installed nowhere: to install yourself, to pass
   to code that takes the bus as a parameter, or for tests.
-- **`getGlobalBus()`** returns `globalThis.__NF_BUS__` as it is, without checking it, or `undefined`.
 - **`installGlobalBus(instance)`** installs `instance` at `globalThis.__NF_BUS__` if the slot is
   empty, and returns the installed bus. The first install wins: it never replaces a bus that others
   use. `/install` and `install.js` run `installGlobalBus(createBus())`.
@@ -291,7 +285,7 @@ import {
 Returns a frozen bus that calls `getBus()` on every call and forwards to the bus it returns, or to the
 [inert bus](#without-an-installed-bus) when it returns `undefined`. `protocol`, `version` and `tap` are
 looked up the same way, so the result has `tap` only while the bus behind it has one. `bus` itself is
-`busFrom(getGlobalBus)`. A `getBus` that is not a function throws at once
+`busFrom(() => globalThis.__NF_BUS__)`. A `getBus` that is not a function throws at once
 (`busFrom's getBus must be a function, got …`).
 
 Use it for a bus kept anywhere else, such as in an iframe or a DI container:
