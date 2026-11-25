@@ -339,8 +339,8 @@ the bus before any remote code runs. A remote doesn't install a bus of its own.
 - **Order.** Every listener sees values in emit order, across channels. A value emitted inside a
   listener is delivered after the current value has reached every listener and tap, so that inner
   `emit` returns before its own delivery.
-- **Who gets it.** The listeners subscribed when `emit` was called. One that unsubscribes before its
-  turn is skipped.
+- **Who gets it.** The listeners subscribed and the taps open when `emit` was called. One that
+  unsubscribes or closes before its turn is skipped.
 - **Isolation.** A listener that throws doesn't stop the producer or the other listeners. The error
   goes to `reportError` (in a browser, the console shows it as an uncaught error), or to
   `console.error` where there is no `reportError`.
